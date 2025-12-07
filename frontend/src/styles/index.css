@@ -1,0 +1,494 @@
+/* 1) Use Poppins (headings + body). Keep Inter as fallback if CDN fails. */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+
+@import "tailwindcss";
+
+/* ---------- THEME TOKENS ---------- */
+:root{
+  --bg-1:#ffffff; --bg-2:#f8fafc;
+  --text:#0f172a; --muted:#6b7280;
+  --primary:#0f766e; --accent:#06b6d4;
+  --card:rgba(255,255,255,0.88); --card-border:rgba(15,118,110,0.10);
+  --shadow:0 18px 48px rgba(15,17,26,0.10);
+}
+.theme-emerald{ --primary:#059669; --accent:#34d399; --bg-2:#effdf6; }
+.theme-night{ --primary:#4f46e5; --accent:#60a5fa; --bg-2:#eef2ff; }
+.theme-dark{
+  --bg-1:#0b1020; --bg-2:#0f172a; --text:#e5e7eb; --muted:#a1a1aa;
+  --card:rgba(17,24,39,0.65); --card-border:rgba(255,255,255,0.08);
+  --shadow:0 20px 56px rgba(2,6,23,0.55);
+}
+
+/* ---------- BACKGROUND FX ---------- */
+@keyframes bgShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+html,body,#root{height:100%}
+body{
+  color:var(--text);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, var(--bg-2), transparent 60%),
+    linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 100%);
+  background-size:200% 200%;
+  animation:bgShift 18s ease infinite;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+}
+
+/* subtle noise overlay */
+.noise-overlay{
+  pointer-events:none; position:fixed; inset:0; z-index:0; opacity:.07; mix-blend:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.25'/%3E%3C/svg%3E");
+}
+
+/* floating blobs behind content */
+.blob{
+  position:absolute; filter:blur(40px); opacity:.45; z-index:0;
+  background: radial-gradient(closest-side, var(--accent), transparent);
+  animation:float 16s ease-in-out infinite;
+}
+@keyframes float{0%{transform:translateY(0)}50%{transform:translateY(-24px)}100%{transform:translateY(0)}}
+
+/* ---------- CARDS / ELEMENTS ---------- */
+.header-glass{background:rgba(255,255,255,0.92); border-bottom:1px solid rgba(0,0,0,0.05); backdrop-filter:blur(8px); position:sticky; top:0; z-index:30}
+.theme-dark .header-glass{background:rgba(17,24,39,0.65); border-bottom-color:rgba(255,255,255,0.08)}
+
+.glass-card{background:var(--card); border:1px solid var(--card-border); border-radius:18px; box-shadow:var(--shadow); backdrop-filter:blur(10px); transition: transform .18s cubic-bezier(.2,.9,.2,1), box-shadow .18s; will-change: transform; transform-origin: center; transform: translateZ(0)}
+.glass-tile{background:rgba(255,255,255,0.97); border:1px solid rgba(0,0,0,0.05); border-radius:14px; box-shadow:0 14px 30px rgba(15,17,26,0.08); transition: transform .18s cubic-bezier(.2,.9,.2,1), box-shadow .18s; will-change: transform; transform-origin: center; transform: translateZ(0)}
+.theme-dark .glass-tile{background:rgba(17,24,39,0.75); border-color:rgba(255,255,255,0.08)}
+
+/* Global hover scale + shadow for boxes */
+.glass-card:hover, .glass-tile:hover { transform: scale(1.04) translateZ(0); box-shadow: 0 22px 44px rgba(6,182,212,0.12) }
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .glass-card, .glass-tile { transition: none }
+  .glass-card:hover, .glass-tile:hover { transform: none }
+}
+
+/* Fallback: scale child content when parent has inline transforms (e.g., GSAP) */
+.hover-scale { perspective: 1000px; transform-style: preserve-3d }
+.hover-scale > * { transition: transform .18s cubic-bezier(.2,.9,.2,1), box-shadow .18s; will-change: transform; transform-origin: center; }
+.hover-scale:hover > * { transform: scale(1.04) }
+
+@media (prefers-reduced-motion: reduce) {
+  .hover-scale > * { transition: none }
+  .hover-scale:hover > * { transform: none }
+}
+
+.btn-primary{
+  padding:.7rem 1.1rem; border-radius:12px; color:#fff;
+  background:linear-gradient(135deg, var(--accent), var(--primary));
+  box-shadow:0 16px 28px rgba(0,0,0,.12); transition:transform .2s ease, box-shadow .2s ease;
+}
+.btn-primary:hover{ transform:translateY(-2px); box-shadow:0 24px 36px rgba(0,0,0,.16) }
+.btn-outline{ padding:.7rem 1.1rem; border-radius:12px; border:1px solid rgba(0,0,0,.1); background:rgba(255,255,255,.9) }
+.theme-dark .btn-outline{ background:rgba(17,24,39,.55); border-color:rgba(255,255,255,.12) }
+
+.kpi-number{font-weight:900; font-size:30px}
+
+/* Brand gradient utility using theme variables */
+.bg-brand {
+  background: linear-gradient(135deg, var(--accent), var(--primary));
+}
+
+/* Brand text gradient utility using theme variables */
+.text-gradient-brand {
+  background: linear-gradient(90deg, var(--accent), var(--primary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* fancy underline for links */
+.link-underline{
+  background:linear-gradient(transparent 70%, rgba(6,182,212,.35) 0);
+  transition:background-size .2s ease;
+}
+
+/* ---------- REVEAL ON SCROLL ---------- */
+.reveal{opacity:0; transform:translateY(16px); transition:opacity .6s ease, transform .6s ease}
+.reveal.visible{opacity:1; transform:translateY(0)}
+
+/* nicer slider thumb */
+input[type="range"] {
+  -webkit-appearance: none;
+  height: 6px;
+  background: linear-gradient(90deg, var(--accent), var(--primary));
+  border-radius: 999px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: white; border: 3px solid var(--primary); box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: white; border: 3px solid var(--primary);
+}
+
+/* subtle highlight around selected stage detail */
+.stage-active {
+  box-shadow: 0 18px 40px rgba(6,182,212,0.08);
+  border-left: 4px solid var(--primary);
+}
+
+/* small animation for cards when they appear */
+@keyframes popIn {
+  0% { opacity: 0; transform: translateY(6px) scale(.99) }
+  100% { opacity: 1; transform: translateY(0) scale(1) }
+}
+.glass-card, .glass-tile { animation: popIn .36s ease both }
+
+
+/* ---------- WAVES ---------- */
+.wave-top{mask:linear-gradient(#000 60%, transparent)}
+/* responsive */
+@media (max-width:1024px){ .kpi-number{font-size:24px} }
+/* Off-canvas slide-in */
+.offcanvas{
+  transform: translateX(105%);
+  transition: transform .28s ease;
+}
+/* ---------- OFF-CANVAS NAVIGATION ---------- */
+html, body {
+  overflow-x: hidden;
+}
+
+/* Drawer overlay and animation */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+.drawer-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ---------- HEADING ACCENT (blue→white gradient tail) ---------- */
+.heading-accent {
+  position: relative;
+  display: inline-block;
+  line-height: 1.1;
+}
+.heading-accent::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -6px;
+  width: 42%;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(59,130,246,0.35), rgba(6,182,212,0.28), rgba(255,255,255,0));
+  opacity: .9;
+  pointer-events: none;
+  transition: width .28s cubic-bezier(.2,.9,.2,1), opacity .28s;
+}
+.heading-accent:hover::after {
+  width: 56%;
+  opacity: 1;
+}
+.theme-dark .heading-accent::after {
+  background: linear-gradient(90deg, rgba(125,211,252,0.35), rgba(59,130,246,0.28), rgba(255,255,255,0));
+}
+
+/* ---------- TEXT GRADIENT (blue→cyan→white) ---------- */
+.text-gradient-blue {
+  background: linear-gradient(90deg, #2563eb 0%, #06b6d4 60%, #ffffff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.theme-dark .text-gradient-blue {
+  background: linear-gradient(90deg, #60a5fa 0%, #22d3ee 60%, #ffffff 100%);
+}
+
+/* Blue → White → Black text gradient */
+.text-gradient-bwb {
+  background: linear-gradient(90deg, #2563eb 0%, #ffffff 55%, #0f172a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.theme-dark .text-gradient-bwb {
+  background: linear-gradient(90deg, #60a5fa 0%, #ffffff 55%, #000000 100%);
+}
+
+/* Dark Blue → Blue → Light Blue text gradient */
+.text-gradient-azure {
+  background: linear-gradient(90deg, #1e3a8a 0%, #2563eb 55%, #7dd3fc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.theme-dark .text-gradient-azure {
+  background: linear-gradient(90deg, #1e40af 0%, #3b82f6 55%, #93c5fd 100%);
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 320px;
+  max-width: 90vw;
+  z-index: 70;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(240, 249, 255, 0.95));
+  box-shadow: -8px 0 30px rgba(0, 0, 0, 0.1);
+  border-left: 1px solid rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(16px);
+  transform: translateX(100%);
+  transition: transform 0.45s ease;
+}
+.theme-dark .drawer {
+  background: rgba(17, 24, 39, 0.85);
+  border-left-color: rgba(255, 255, 255, 0.1);
+}
+.drawer.show {
+  transform: translateX(0);
+}
+
+/* Scroll lock when nav open */
+body.nav-open {
+  overflow: hidden;
+}
+
+/* ---------- SMOOTH SCROLL AND REVEALS ---------- */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ProcessFlow improvements */
+svg { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
+
+/* stage selected style */
+.stage-active rect {
+  box-shadow: 0 20px 50px rgba(6,182,212,0.08);
+  /* visual glow */
+  filter: drop-shadow(0 12px 28px rgba(6,182,212,0.08));
+}
+
+/* make arrow color subtle but visible */
+svg path[marker-end] {
+  /* already styled inline; keep for fallback */
+}
+
+/* optimize pointer and hover */
+svg g.cursor-pointer:hover rect {
+  transform: translateY(-6px);
+  transition: transform .22s ease;
+  stroke-width: 1.8;
+}
+
+/* smaller text on tiny screens */
+@media (max-width: 600px) {
+  svg text { font-size: 18px !important; }
+}
+/* ProcessFlow responsive tweaks */
+.process-wrapper { width: 100%; max-width: 1200px; margin: 0 auto; }
+.process-svg { width: 100%; height: auto; display: block; }
+
+/* Prevent the diagram from forcing page horizontal scroll */
+.glass-card { overflow: visible; }
+
+/* Slight hover lift for boxes */
+.process-svg g.cursor-pointer:hover rect {
+  transform: translateY(-6px);
+  transition: transform .22s ease;
+}
+
+/* selected stage highlight */
+.stage-active rect, .process-svg g.cursor-pointer:active rect {
+  stroke-width: 2.4;
+  filter: drop-shadow(0 10px 28px rgba(6,182,212,0.06));
+}
+
+/* scale down gently on small screens to avoid overlap */
+@media (max-width: 960px) {
+  .process-svg { transform-origin: top center; transform: scale(.9); }
+  .process-svg text { font-size: 18px !important; }
+}
+@media (max-width: 720px) {
+  .process-svg { transform: scale(.78); }
+  .process-svg text { font-size: 15px !important; }
+}
+
+/* ================= DYNAMIC EFFECTS STYLES ================= */
+
+/* Animated gradient background (subtle) */
+.bg-animated {
+  background: linear-gradient(120deg, rgba(6,182,212,0.06), rgba(14,165,233,0.03) 30%, rgba(16,185,129,0.02));
+  background-size: 300% 300%;
+  animation: bgFlow 18s ease infinite;
+}
+@keyframes bgFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* floating blob shapes for parallax layer */
+.parallax-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(36px);
+  opacity: .35;
+  transform: translate3d(0,0,0);
+  pointer-events: none;
+}
+
+/* custom cursor */
+.cursor-dot, .cursor-trail {
+  position: fixed;
+  pointer-events: none;
+  z-index: 99999;
+  transform: translate(-50%, -50%);
+  transition: width .12s ease, height .12s ease, background-color .12s ease, opacity .12s ease;
+}
+.cursor-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(6,182,212,0.95);
+  mix-blend-mode: normal;
+}
+.cursor-trail {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid rgba(6,182,212,0.38);
+  background: transparent;
+}
+
+/* reveal animation base (used by ScrollReveal hook) */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity .6s cubic-bezier(.2,.9,.2,1), transform .6s cubic-bezier(.2,.9,.2,1);
+  will-change: opacity, transform;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* microinteraction buttons */
+.btn-animated {
+  transition: transform .18s cubic-bezier(.2,.9,.2,1), box-shadow .18s;
+  will-change: transform;
+}
+.btn-animated:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 18px 38px rgba(6,182,212,0.08); }
+.btn-animated:active { transform: translateY(-1px) scale(.995); }
+
+/* ripple effect (for buttons) */
+.ripple-wrap { position: relative; overflow: hidden; }
+.ripple {
+  position: absolute; pointer-events: none; border-radius: 9999px; background: rgba(255,255,255,0.35);
+  transform: scale(0); animation: ripple .6s ease;
+}
+@keyframes ripple { to { transform: scale(6); opacity: 0; } }
+
+/* ===== Hero specific elevation utilities ===== */
+.text-soft-shadow { text-shadow: 0 1px 2px rgba(0,0,0,0.28) }
+.theme-dark .text-soft-shadow { text-shadow: 0 1px 2px rgba(0,0,0,0.45) }
+
+.btn-elevated { box-shadow: 0 12px 28px rgba(14,165,233,0.18), 0 6px 14px rgba(0,0,0,0.08) }
+.btn-elevated:hover { box-shadow: 0 18px 40px rgba(14,165,233,0.22), 0 8px 18px rgba(0,0,0,0.10) }
+.theme-dark .btn-elevated { box-shadow: 0 12px 28px rgba(59,130,246,0.22), 0 6px 14px rgba(0,0,0,0.20) }
+
+.card-elevated { box-shadow: 0 18px 48px rgba(2,6,23,0.20), 0 6px 18px rgba(2,6,23,0.10) }
+.theme-dark .card-elevated { box-shadow: 0 22px 54px rgba(0,0,0,0.45), 0 8px 20px rgba(0,0,0,0.28) }
+
+/* page transitions: needs framer-motion wrapper (no CSS required here but keep space) */
+
+/* parallax responsive adjustments */
+@media (max-width: 768px) {
+  .parallax-blob { filter: blur(28px); opacity: .25; }
+  .cursor-dot { display: none; } /* disable custom cursor on mobile */
+}
+/* ================ SHIMMER TEXT ================ */
+/* The shimmering gradient for headings (uses background-clip) */
+.shimmer-text {
+  background: linear-gradient(90deg, var(--accent), var(--primary), #7dd3fc 60%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  display: inline-block;
+  position: relative;
+  background-size: 200% 100%;
+  animation: shimmerMove 3.6s linear infinite;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes shimmerMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* slight inner glow for emphasis on large headers */
+.shimmer-text::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  box-shadow: 0 8px 30px rgba(6,182,212,0.06);
+  pointer-events: none;
+  border-radius: 2px;
+}
+
+/* small adjustment so word spans don't wrap weirdly during stagger reveal */
+.shimmer-text span {
+  white-space: nowrap;
+}
+
+/* optional subtle underline accent (used by .link-underline in original css) */
+.shimmer-underline {
+  background-image: linear-gradient(90deg, rgba(6,182,212,0.18), rgba(5,150,105,0.12));
+  background-size: 100% 3px;
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+}
+/* ---- sane defaults for all <img> ---- */
+img { display: block; max-width: 100%; height: auto; }
+
+/* ---- reusable class for section images ---- */
+.section-image { width: 100%; height: 16rem; object-fit: cover; } /* h-64 */
+@media (min-width: 768px) { .section-image { height: 18rem; } }   /* md:h-72 */
+
+
+
+body { font-family: 'Poppins', Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; }
+
+/* 2) Heading font utility used on the hero title */
+.font-display { font-family: 'Poppins', Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; }
+
+/* Lock body scroll when side nav is open */
+body.nav-open {
+  overflow: hidden;
+}
+
+/* Overlay background behind the drawer */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(2px);  /* subtle blur effect */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.drawer-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
