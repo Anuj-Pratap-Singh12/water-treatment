@@ -5,7 +5,7 @@ import ProcessFlow from "../components/ProcessFlow";
 import StageDetailCard from "../components/StageDetailCard";
 import TreatmentSimulator from "../components/TreatmentSimulator";
 import { StagePerformanceChart, ChemicalDoseChart } from "../components/ProcessCharts";
-
+import ProcessDesignFlowchart from "../components/ProcessDesignFlowchart"; // ✅ NEW
 
 export default function ProcessDesignPage() {
   const [selectedStage, setSelectedStage] = React.useState(null);
@@ -339,14 +339,13 @@ export default function ProcessDesignPage() {
                 )}
 
                 {localResults && (
-  <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-    <div className="text-[11px] font-semibold text-slate-500 mb-2">
-      Trend View
-    </div>
-    <StagePerformanceChart localResults={localResults} />
-  </div>
-)}
-
+                  <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+                    <div className="text-[11px] font-semibold text-slate-500 mb-2">
+                      Trend View
+                    </div>
+                    <StagePerformanceChart localResults={localResults} />
+                  </div>
+                )}
               </div>
 
               {/* DETAILED TREATMENT REPORT CARD (moved left under table) */}
@@ -452,19 +451,19 @@ export default function ProcessDesignPage() {
                       )}
                     </div>
                   </div>
-                  {/* Dose summary (existing) */}
-<div className="p-3 rounded-xl bg-slate-50 border">
-  {/* ...your existing dose summary code... */}
-</div>
 
-{/* Chemical chart */}
-<div className="p-3 rounded-xl bg-white border">
-  <div className="font-semibold text-slate-700 mb-1">
-    Chemical Dose Chart (mg/L)
-  </div>
-  <ChemicalDoseChart doses={doses} chemicalDoses={chemicalDoses} />
-</div>
+                  {/* Dose summary (existing placeholder, if you want to reuse later) */}
+                  <div className="p-3 rounded-xl bg-slate-50 border">
+                    {/* ...your existing dose summary code... */}
+                  </div>
 
+                  {/* Chemical chart */}
+                  <div className="p-3 rounded-xl bg-white border">
+                    <div className="font-semibold text-slate-700 mb-1">
+                      Chemical Dose Chart (mg/L)
+                    </div>
+                    <ChemicalDoseChart doses={doses} chemicalDoses={chemicalDoses} />
+                  </div>
                 </div>
               )}
             </div>
@@ -616,6 +615,24 @@ export default function ProcessDesignPage() {
               )}
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ✅ NEW SECTION: STANDARD TREATMENT FLOWCHARTS FOR 5 WATER TYPES */}
+      <section className="space-y-4">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Standard Treatment Trains (All Water Types)
+            </h2>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Visual flowchart of typical unit processes for each water category.
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-inner p-5">
+          <ProcessDesignFlowchart />
         </div>
       </section>
 
