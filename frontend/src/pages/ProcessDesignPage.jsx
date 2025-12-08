@@ -5,8 +5,9 @@ import ProcessFlow from "../components/ProcessFlow";
 import StageDetailCard from "../components/StageDetailCard";
 import TreatmentSimulator from "../components/TreatmentSimulator";
 import { StagePerformanceChart, ChemicalDoseChart } from "../components/ProcessCharts";
-import ProcessDesignFlowchart from "../components/ProcessDesignFlowchart"; // ✅ NEW
-import CostEfficiencyCalculator from "../components/CostEfficiencyCalculator"
+import CostEfficiencyCalculator from "../components/CostEfficiencyCalculator";
+import ProcessFlowDiagram from "../components/ProcessFlowDiagram";
+import ProcessInstrumentationDesigner from "../components/ProcessInstrumentationDesigner"; // ✅ NEW
 
 export default function ProcessDesignPage() {
   const [selectedStage, setSelectedStage] = React.useState(null);
@@ -272,6 +273,9 @@ export default function ProcessDesignPage() {
         </aside>
       </section>
 
+      {/* ✅ NEW: P&ID / INSTRUMENTATION SECTION */}
+    
+
       {/* SIMULATION + RESULTS */}
       <section className="space-y-4">
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5 flex items-center justify-between">
@@ -349,7 +353,7 @@ export default function ProcessDesignPage() {
                 )}
               </div>
 
-              {/* DETAILED TREATMENT REPORT CARD (moved left under table) */}
+              {/* DETAILED TREATMENT REPORT CARD */}
               {simResults && (
                 <div className="rounded-2xl border border-slate-300 bg-white shadow-sm p-4 space-y-3">
                   <div className="flex items-center justify-between gap-2">
@@ -451,9 +455,10 @@ export default function ProcessDesignPage() {
                         </p>
                       )}
                     </div>
+                    
                   </div>
 
-                  {/* Dose summary (existing placeholder, if you want to reuse later) */}
+                  {/* Dose summary placeholder */}
                   <div className="p-3 rounded-xl bg-slate-50 border">
                     {/* ...your existing dose summary code... */}
                   </div>
@@ -465,9 +470,39 @@ export default function ProcessDesignPage() {
                     </div>
                     <ChemicalDoseChart doses={doses} chemicalDoses={chemicalDoses} />
                   </div>
+                  
                 </div>
               )}
+                  <section className="space-y-3">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Process & Instrumentation (P&ID)
+            </h2>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Interactive process & instrumentation layout with live parameter controls.
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-inner p-4">
+          <ProcessInstrumentationDesigner
+            influent={influent}
+            localResults={localResults}
+            onNodeClick={(id) => {
+              // Simple mapping from P&ID nodes to stage keys
+              if (id === "intake") setSelectedStage("screening");
+              else if (id === "coagulation") setSelectedStage("primary");
+              else if (id === "sedimentation") setSelectedStage("secondary");
+              else if (id === "filtration") setSelectedStage("tertiary");
+              // instruments like FT-101, PH-401 etc can be handled later if needed
+            }}
+          />
+        </div>
+      </section>
             </div>
+
+            
 
             {/* RIGHT: AI Recommendation + Water type */}
             <div className="space-y-4">
@@ -615,30 +650,23 @@ export default function ProcessDesignPage() {
                 </div>
               )}
 
-               {/* Cost calculator linked to simulator doses */}
+              {/* Cost calculator linked to simulator doses */}
               {doses && influent?.flow && (
                 <CostEfficiencyCalculator doses={doses} flow={influent.flow} />
               )}
+
+          
             </div>
           </div>
         </div>
       </section>
 
-      {/* ✅ NEW SECTION: STANDARD TREATMENT FLOWCHARTS FOR 5 WATER TYPES */}
+      {/* STANDARD TREATMENT FLOW DIAGRAMS */}
       <section className="space-y-4">
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Standard Treatment Trains (All Water Types)
-            </h2>
-            <p className="text-xs text-slate-600 mt-0.5">
-              Visual flowchart of typical unit processes for each water category.
-            </p>
-          </div>
-        </div>
+        
 
         <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-inner p-5">
-          <ProcessDesignFlowchart />
+          <ProcessFlowDiagram waterType={waterType} />
         </div>
       </section>
 
