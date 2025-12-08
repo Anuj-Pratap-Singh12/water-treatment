@@ -1,5 +1,6 @@
 // src/components/TreatmentSimulator.jsx
 import React, { useState, useMemo, useCallback } from "react";
+import { classifyWaterType } from "../utils/waterClassification";
 
 export default function TreatmentSimulator({ onSimulate }) {
   const [influent, setInfluent] = useState({
@@ -25,8 +26,12 @@ export default function TreatmentSimulator({ onSimulate }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // -----------------------------
+  // LOCAL STAGE SIMULATION
+  // -----------------------------
   const simulate = useCallback(() => {
     const seq = ["primary", "secondary", "tertiary"];
+
     let out = {
       turbidity: influent.turbidity,
       BOD: influent.BOD,
@@ -65,6 +70,9 @@ export default function TreatmentSimulator({ onSimulate }) {
     return r[r.length - 1];
   }, [simulate]);
 
+  // -----------------------------
+  // SMALL INPUT COMPONENT
+  // -----------------------------
   const NumberInput = ({ label, value, onChange, suffix, full }) => (
     <div className={full ? "col-span-2" : ""}>
       <div className="text-xs text-slate-500">{label}</div>
@@ -80,9 +88,27 @@ export default function TreatmentSimulator({ onSimulate }) {
     </div>
   );
 
+  // -----------------------------
+  // MAIN SIMULATE HANDLER
+  // -----------------------------
   const handleSimulateClick = async () => {
     setError("");
+
+    // 1) Local stage-wise results
     const localResults = simulate();
+
+    // 2) Rule-based water type classification
+    const waterType = classifyWaterType({
+      pH: influent.pH,
+      tds: influent.tds,
+      turbidity: influent.turbidity,
+      bod: influent.BOD,
+      cod: influent.COD,
+      tn: influent.TN,
+      temperature: influent.temperature,
+    });
+
+    // 3) Build payload for Node → FastAPI ML
     const qualityPayload = {
       pH: influent.pH,
       tds: influent.tds,
@@ -97,6 +123,7 @@ export default function TreatmentSimulator({ onSimulate }) {
 
     try {
       setLoading(true);
+
       const res = await fetch("http://localhost:5001/api/ml/recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -109,6 +136,7 @@ export default function TreatmentSimulator({ onSimulate }) {
       if (res.ok) {
         mlRecommendation = await res.json();
       } else {
+        console.error("ML endpoint error:", res.status);
         setError("ML recommendation failed – check backend logs.");
       }
     } catch (err) {
@@ -116,17 +144,24 @@ export default function TreatmentSimulator({ onSimulate }) {
       setError("Could not reach ML service. Is backend + FastAPI running?");
     } finally {
       setLoading(false);
+
+      // 4) Send everything up to ProcessDesignPage
       onSimulate?.({
         mlRecommendation,
+        waterType,
         localResults,
         influent,
+        eff,
       });
     }
   };
 
+  // -----------------------------
+  // UI
+  // -----------------------------
   return (
     <div className="space-y-5">
-      {/* TOP GRID: influent + stages */}
+      {/* TOP GRID: influent + stage efficiencies */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Influent quality */}
         <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-5">
