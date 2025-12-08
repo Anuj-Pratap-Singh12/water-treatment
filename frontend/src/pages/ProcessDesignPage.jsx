@@ -6,6 +6,7 @@ import StageDetailCard from "../components/StageDetailCard";
 import TreatmentSimulator from "../components/TreatmentSimulator";
 import { StagePerformanceChart, ChemicalDoseChart } from "../components/ProcessCharts";
 import ProcessDesignFlowchart from "../components/ProcessDesignFlowchart"; // ✅ NEW
+import CostEfficiencyCalculator from "../components/CostEfficiencyCalculator"
 
 export default function ProcessDesignPage() {
   const [selectedStage, setSelectedStage] = React.useState(null);
@@ -612,6 +613,11 @@ export default function ProcessDesignPage() {
                     </div>
                   </div>
                 </div>
+              )}
+
+               {/* Cost calculator linked to simulator doses */}
+              {doses && influent?.flow && (
+                <CostEfficiencyCalculator doses={doses} flow={influent.flow} />
               )}
             </div>
           </div>
