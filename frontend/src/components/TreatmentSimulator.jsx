@@ -1,6 +1,9 @@
 // src/components/TreatmentSimulator.jsx
 import React, { useState, useMemo, useCallback } from "react";
 import { classifyWaterType } from "../utils/waterClassification";
+import { chemicalSelectionLogic } from "../utils/chemicalLogic";
+import { equipmentSelectionLogic } from "../utils/equipmentLogic";
+import { calculateDoses } from "../utils/doseCalculator";
 
 export default function TreatmentSimulator({ onSimulate }) {
   const [influent, setInfluent] = useState({
@@ -26,12 +29,9 @@ export default function TreatmentSimulator({ onSimulate }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // -----------------------------
-  // LOCAL STAGE SIMULATION
-  // -----------------------------
+  // local stage-wise removal simulation
   const simulate = useCallback(() => {
     const seq = ["primary", "secondary", "tertiary"];
-
     let out = {
       turbidity: influent.turbidity,
       BOD: influent.BOD,
@@ -70,9 +70,6 @@ export default function TreatmentSimulator({ onSimulate }) {
     return r[r.length - 1];
   }, [simulate]);
 
-  // -----------------------------
-  // SMALL INPUT COMPONENT
-  // -----------------------------
   const NumberInput = ({ label, value, onChange, suffix, full }) => (
     <div className={full ? "col-span-2" : ""}>
       <div className="text-xs text-slate-500">{label}</div>
@@ -88,13 +85,10 @@ export default function TreatmentSimulator({ onSimulate }) {
     </div>
   );
 
-  // -----------------------------
-  // MAIN SIMULATE HANDLER
-  // -----------------------------
   const handleSimulateClick = async () => {
     setError("");
 
-    // 1) Local stage-wise results
+    // 1) Local stage simulation
     const localResults = simulate();
 
     // 2) Rule-based water type classification
@@ -108,7 +102,35 @@ export default function TreatmentSimulator({ onSimulate }) {
       temperature: influent.temperature,
     });
 
-    // 3) Build payload for Node → FastAPI ML
+    // 3) Chemical & equipment logic + simple dose calculation
+    const chemicals = chemicalSelectionLogic({
+      pH: influent.pH,
+      tds: influent.tds,
+      turbidity: influent.turbidity,
+      bod: influent.BOD,
+      cod: influent.COD,
+      tn: influent.TN,
+      temperature: influent.temperature,
+      heavyMetals: influent.heavyMetals,
+    });
+
+    const equipment = equipmentSelectionLogic({
+      tds: influent.tds,
+      turbidity: influent.turbidity,
+      bod: influent.BOD,
+      cod: influent.COD,
+      temperature: influent.temperature,
+      heavyMetals: influent.heavyMetals,
+    });
+
+    const doses = calculateDoses({
+      turbidity: influent.turbidity,
+      cod: influent.COD,
+      bod: influent.BOD,
+      tds: influent.tds,
+    });
+
+    // 4) Call ML backend (kept same shape as your working version)
     const qualityPayload = {
       pH: influent.pH,
       tds: influent.tds,
@@ -123,7 +145,6 @@ export default function TreatmentSimulator({ onSimulate }) {
 
     try {
       setLoading(true);
-
       const res = await fetch("http://localhost:5001/api/ml/recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -136,7 +157,6 @@ export default function TreatmentSimulator({ onSimulate }) {
       if (res.ok) {
         mlRecommendation = await res.json();
       } else {
-        console.error("ML endpoint error:", res.status);
         setError("ML recommendation failed – check backend logs.");
       }
     } catch (err) {
@@ -145,23 +165,22 @@ export default function TreatmentSimulator({ onSimulate }) {
     } finally {
       setLoading(false);
 
-      // 4) Send everything up to ProcessDesignPage
+      // 5) Send everything up to ProcessDesignPage
       onSimulate?.({
+        influent,
+        localResults,
         mlRecommendation,
         waterType,
-        localResults,
-        influent,
-        eff,
+        chemicals,
+        equipment,
+        doses,
       });
     }
   };
 
-  // -----------------------------
-  // UI
-  // -----------------------------
   return (
     <div className="space-y-5">
-      {/* TOP GRID: influent + stage efficiencies */}
+      {/* TOP GRID: influent + stages */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Influent quality */}
         <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-5">
@@ -221,8 +240,7 @@ export default function TreatmentSimulator({ onSimulate }) {
               label="Total Volume (L/day)"
               value={influent.totalVolume}
               onChange={(v) =>
-                setInfluent((s) => ({ ...s, totalVolume: v }))
-              }
+                setInfluent((s) => ({ ...s, totalVolume: v }))}
               full
             />
 
@@ -356,7 +374,7 @@ export default function TreatmentSimulator({ onSimulate }) {
           </div>
           <div className="mt-2 text-[11px] text-slate-500">
             This preview uses simple removal math. The AI card uses the ML model
-            behind the scenes after you click{" "}
+            and rule engine after you click{" "}
             <span className="font-semibold">Simulate & Get AI Recipe</span>.
           </div>
           {error && (

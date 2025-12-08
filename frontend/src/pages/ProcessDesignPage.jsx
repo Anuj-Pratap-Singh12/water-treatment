@@ -1,8 +1,11 @@
 // src/pages/ProcessDesignPage.jsx
 import React from "react";
+import jsPDF from "jspdf";
 import ProcessFlow from "../components/ProcessFlow";
 import StageDetailCard from "../components/StageDetailCard";
 import TreatmentSimulator from "../components/TreatmentSimulator";
+import { StagePerformanceChart, ChemicalDoseChart } from "../components/ProcessCharts";
+
 
 export default function ProcessDesignPage() {
   const [selectedStage, setSelectedStage] = React.useState(null);
@@ -12,11 +15,163 @@ export default function ProcessDesignPage() {
   const localResults = simResults?.localResults || null;
   const ml = simResults?.mlRecommendation || null;
   const waterType = simResults?.waterType || null;
+  const chemicals = simResults?.chemicals || [];
+  const equipment = simResults?.equipment || null;
+  const doses = simResults?.doses || null;
 
   const finalLocal =
     localResults && localResults.length > 0
       ? localResults[localResults.length - 1]
       : null;
+
+  const chemicalDoses =
+    ml?.chemicalDoses || ml?.chemical_doses || {};
+
+  const primarySteps = Array.isArray(waterType?.primary)
+    ? waterType.primary
+    : [];
+  const secondarySteps = Array.isArray(waterType?.secondary)
+    ? waterType.secondary
+    : [];
+  const tertiarySteps = Array.isArray(waterType?.tertiary)
+    ? waterType.tertiary
+    : [];
+
+  const severity = waterType?.severity || "unknown";
+
+  const severityClass =
+    severity === "very_low"
+      ? "bg-emerald-100 text-emerald-700"
+      : severity === "low"
+      ? "bg-sky-100 text-sky-700"
+      : severity === "medium"
+      ? "bg-amber-100 text-amber-700"
+      : severity === "high"
+      ? "bg-orange-100 text-orange-700"
+      : severity === "very_high"
+      ? "bg-rose-100 text-rose-700"
+      : "bg-slate-100 text-slate-700";
+
+  const downloadReport = () => {
+    if (!simResults) return;
+    const doc = new jsPDF();
+    let y = 10;
+
+    doc.setFontSize(14);
+    doc.text("Water Treatment Detailed Report", 10, y);
+    y += 8;
+
+    doc.setFontSize(11);
+    if (waterType) {
+      doc.text(`Water Type: ${waterType.label}`, 10, y);
+      y += 6;
+      if (waterType.description) {
+        doc.text(`Description: ${waterType.description}`, 10, y);
+        y += 6;
+      }
+    }
+
+    if (influent) {
+      doc.text("Influent Quality:", 10, y);
+      y += 6;
+      doc.setFontSize(10);
+      doc.text(
+        `pH: ${influent.pH}, TDS: ${influent.tds} mg/L, Turbidity: ${influent.turbidity} NTU`,
+        10,
+        y
+      );
+      y += 5;
+      doc.text(
+        `BOD: ${influent.BOD} mg/L, COD: ${influent.COD} mg/L, TN: ${influent.TN} mg/L`,
+        10,
+        y
+      );
+      y += 5;
+      doc.text(
+        `Temperature: ${influent.temperature} °C, Flow: ${influent.flow} m³/day`,
+        10,
+        y
+      );
+      y += 8;
+      doc.setFontSize(11);
+    }
+
+    if (equipment) {
+      doc.text("Selected Equipment:", 10, y);
+      y += 6;
+      doc.setFontSize(10);
+      if (Array.isArray(equipment.primary) && equipment.primary.length) {
+        doc.text("Primary:", 10, y);
+        y += 5;
+        equipment.primary.forEach((e) => {
+          doc.text(`- ${e}`, 14, y);
+          y += 5;
+        });
+      }
+      if (Array.isArray(equipment.secondary) && equipment.secondary.length) {
+        doc.text("Secondary:", 10, y);
+        y += 5;
+        equipment.secondary.forEach((e) => {
+          doc.text(`- ${e}`, 14, y);
+          y += 5;
+        });
+      }
+      if (Array.isArray(equipment.tertiary) && equipment.tertiary.length) {
+        doc.text("Tertiary:", 10, y);
+        y += 5;
+        equipment.tertiary.forEach((e) => {
+          doc.text(`- ${e}`, 14, y);
+          y += 5;
+        });
+      }
+      y += 4;
+      doc.setFontSize(11);
+    }
+
+    if (chemicals.length) {
+      doc.text("Chemical Selection:", 10, y);
+      y += 6;
+      doc.setFontSize(10);
+      chemicals.forEach((c) => {
+        if (y > 270) {
+          doc.addPage();
+          y = 10;
+        }
+        doc.text(
+          `- ${c.chemical} (${c.stage}): ${c.reason}`,
+          10,
+          y
+        );
+        y += 5;
+      });
+      y += 4;
+      doc.setFontSize(11);
+    }
+
+    if (doses) {
+      doc.text("Dose Calculation (mg/L):", 10, y);
+      y += 6;
+      doc.setFontSize(10);
+      Object.entries(doses).forEach(([k, v]) => {
+        doc.text(`- ${k}: ${v}`, 10, y);
+        y += 5;
+      });
+      y += 4;
+      doc.setFontSize(11);
+    }
+
+    if (ml && Object.keys(chemicalDoses).length > 0) {
+      doc.text("ML Model Chemical Doses (mg/L):", 10, y);
+      y += 6;
+      doc.setFontSize(10);
+      Object.entries(chemicalDoses).forEach(([k, v]) => {
+        doc.text(`- ${k}: ${v}`, 10, y);
+        y += 5;
+      });
+    }
+
+    doc.save("water_treatment_report.pdf");
+  };
 
   return (
     <div className="space-y-8">
@@ -32,7 +187,7 @@ export default function ProcessDesignPage() {
           </h1>
           <p className="mt-1.5 text-sm text-slate-600 max-w-xl">
             Configure your influent, simulate stage-wise removal and let the
-            ML engine recommend optimized treatment and chemical dosing.
+            rule engine + ML recommend optimized treatment, equipment and chemical dosing.
           </p>
         </div>
 
@@ -41,7 +196,8 @@ export default function ProcessDesignPage() {
             <div className="text-slate-500">Selected Stage</div>
             <div className="mt-1 font-semibold text-slate-900">
               {selectedStage
-                ? selectedStage.charAt(0).toUpperCase() + selectedStage.slice(1)
+                ? selectedStage.charAt(0).toUpperCase() +
+                  selectedStage.slice(1)
                 : "None"}
             </div>
           </div>
@@ -123,8 +279,8 @@ export default function ProcessDesignPage() {
               Simulation & Recommendations
             </h2>
             <p className="text-xs text-slate-600 mt-0.5">
-              Run a scenario and compare local stage-wise performance, rule-based
-              water type classification and AI-recommended treatment recipe.
+              Run a scenario and compare stage-wise performance, water type classification,
+              equipment, chemicals and ML-backed recipe.
             </p>
           </div>
         </div>
@@ -135,57 +291,185 @@ export default function ProcessDesignPage() {
 
           {/* RESULTS GRID */}
           <div className="mt-6 grid grid-cols-1 xl:grid-cols-3 gap-5">
-            {/* Local stage-wise table */}
-            <div className="xl:col-span-2 rounded-2xl bg-white border border-slate-200 p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <div className="text-xs font-semibold uppercase text-slate-500">
+            {/* LEFT: table + Detailed Treatment Report */}
+            <div className="xl:col-span-2 space-y-4">
+              {/* Local stage-wise table */}
+              <div className="rounded-2xl bg-white border border-slate-200 p-4">
+                <div className="flex flex-col items-center text-center mb-3">
+                  <div className="text-xs font-semibold uppercase text-slate-500 tracking-wide">
                     Stage-wise Performance (Local)
                   </div>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-500 mt-0.5 max-w-md">
                     Simple removal based on the efficiency sliders.
                   </p>
                 </div>
+
+                {localResults ? (
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="min-w-full text-xs text-center">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-slate-500">
+                          <th className="py-2 px-3">Stage</th>
+                          <th className="py-2 px-3">Turbidity (NTU)</th>
+                          <th className="py-2 px-3">BOD (mg/L)</th>
+                          <th className="py-2 px-3">Total N (mg/L)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {localResults.map((row) => (
+                          <tr
+                            key={row.label}
+                            className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/80 transition-colors"
+                          >
+                            <td className="py-2 px-3 font-medium text-slate-900">
+                              {row.label}
+                            </td>
+                            <td className="py-2 px-3">{row.turbidity}</td>
+                            <td className="py-2 px-3">{row.BOD}</td>
+                            <td className="py-2 px-3">{row.TN}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="mt-3 text-xs text-slate-500 text-center">
+                    Run a simulation to see stage-wise values.
+                  </div>
+                )}
+
+                {localResults && (
+  <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+    <div className="text-[11px] font-semibold text-slate-500 mb-2">
+      Trend View
+    </div>
+    <StagePerformanceChart localResults={localResults} />
+  </div>
+)}
+
               </div>
 
-              {localResults ? (
-                <div className="mt-3 overflow-x-auto">
-                  <table className="min-w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-slate-500">
-                        <th className="py-2 pr-3 text-left">Stage</th>
-                        <th className="py-2 px-3 text-right">Turbidity (NTU)</th>
-                        <th className="py-2 px-3 text-right">BOD (mg/L)</th>
-                        <th className="py-2 px-3 text-right">Total N (mg/L)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {localResults.map((row) => (
-                        <tr
-                          key={row.label}
-                          className="border-b border-slate-100 last:border-b-0"
-                        >
-                          <td className="py-2 pr-3 font-medium text-slate-900">
-                            {row.label}
-                          </td>
-                          <td className="py-2 px-3 text-right">
-                            {row.turbidity}
-                          </td>
-                          <td className="py-2 px-3 text-right">{row.BOD}</td>
-                          <td className="py-2 px-3 text-right">{row.TN}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="mt-3 text-xs text-slate-500">
-                  Run a simulation to see stage-wise values.
+              {/* DETAILED TREATMENT REPORT CARD (moved left under table) */}
+              {simResults && (
+                <div className="rounded-2xl border border-slate-300 bg-white shadow-sm p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-xs font-bold text-slate-900">
+                      Detailed Treatment Report
+                    </h3>
+                    <button
+                      onClick={downloadReport}
+                      className="rounded-full bg-emerald-600 text-white px-3 py-1 text-[11px] hover:bg-emerald-700"
+                    >
+                      Download PDF
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 text-[11px]">
+                    {/* Equipment detail */}
+                    <div className="p-3 rounded-xl bg-slate-50 border">
+                      <div className="font-semibold text-slate-700 mb-1">
+                        Equipment Used
+                      </div>
+                      {equipment ? (
+                        <ul className="list-disc list-inside space-y-1 text-slate-700">
+                          {Array.isArray(equipment.primary) &&
+                            equipment.primary.map((e) => (
+                              <li key={`p-${e}`}>
+                                <span className="font-semibold">[Primary] </span>
+                                {e}
+                              </li>
+                            ))}
+                          {Array.isArray(equipment.secondary) &&
+                            equipment.secondary.map((e) => (
+                              <li key={`s-${e}`}>
+                                <span className="font-semibold">[Secondary] </span>
+                                {e}
+                              </li>
+                            ))}
+                          {Array.isArray(equipment.tertiary) &&
+                            equipment.tertiary.map((e) => (
+                              <li key={`t-${e}`}>
+                                <span className="font-semibold">[Tertiary] </span>
+                                {e}
+                              </li>
+                            ))}
+                        </ul>
+                      ) : (
+                        <p className="text-slate-500">
+                          Run simulation to compute equipment selection.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Chemicals detail */}
+                    <div className="p-3 rounded-xl bg-slate-50 border">
+                      <div className="font-semibold text-slate-700 mb-1">
+                        Chemicals & Rationale
+                      </div>
+                      {chemicals && chemicals.length ? (
+                        <ul className="list-disc list-inside space-y-1 text-slate-700">
+                          {chemicals.map((c) => (
+                            <li key={c.chemical}>
+                              <span className="font-semibold">{c.chemical}</span>{" "}
+                              <span className="text-slate-500">
+                                ({c.stage}) – {c.reason}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-slate-500">
+                          No chemical logic triggered for this scenario.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Dose summary */}
+                    <div className="p-3 rounded-xl bg-slate-50 border">
+                      <div className="font-semibold text-slate-700 mb-1">
+                        Rule-based Dose Estimates (mg/L)
+                      </div>
+                      {doses ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          {Object.entries(doses).map(([k, v]) => (
+                            <div
+                              key={k}
+                              className="rounded-lg bg-white border px-2 py-1"
+                            >
+                              <div className="text-[10px] uppercase text-slate-500">
+                                {k}
+                              </div>
+                              <div className="text-xs font-semibold text-slate-900">
+                                {v}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-slate-500">
+                          No dose information available.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {/* Dose summary (existing) */}
+<div className="p-3 rounded-xl bg-slate-50 border">
+  {/* ...your existing dose summary code... */}
+</div>
+
+{/* Chemical chart */}
+<div className="p-3 rounded-xl bg-white border">
+  <div className="font-semibold text-slate-700 mb-1">
+    Chemical Dose Chart (mg/L)
+  </div>
+  <ChemicalDoseChart doses={doses} chemicalDoses={chemicalDoses} />
+</div>
+
                 </div>
               )}
             </div>
 
-            {/* AI Recommendation + Water type box stacked */}
+            {/* RIGHT: AI Recommendation + Water type */}
             <div className="space-y-4">
               {/* AI Recommendation card */}
               <div className="rounded-2xl bg-gradient-to-b from-emerald-600 to-emerald-700 text-emerald-50 p-4 space-y-3 shadow-md">
@@ -212,33 +496,8 @@ export default function ProcessDesignPage() {
                   <>
                     <div>
                       <div className="text-sm font-semibold text-white">
-                        {ml.recipeLabel}
+                        {ml.recipeLabel || ml.recipe_class || "AI Recipe"}
                       </div>
-                      <p className="mt-1 text-[11px] text-emerald-100/80">
-                        {ml.recipeDescription}
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-2 text-[11px]">
-                      {["primary", "secondary", "tertiary"].map((stage) => {
-                        const items = ml.stages?.[stage];
-                        if (!items || !items.length) return null;
-                        return (
-                          <div
-                            key={stage}
-                            className="rounded-xl bg-emerald-900/20 border border-emerald-400/40 px-3 py-2"
-                          >
-                            <div className="font-semibold uppercase text-emerald-50/90">
-                              {stage} stage
-                            </div>
-                            <ul className="mt-1 list-disc list-inside space-y-0.5 text-emerald-50/90">
-                              {items.map((item) => (
-                                <li key={item}>{item}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        );
-                      })}
                     </div>
 
                     <div>
@@ -246,8 +505,8 @@ export default function ProcessDesignPage() {
                         Recommended Chemical Doses (mg/L)
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                        {Object.entries(ml.chemicalDoses || {}).map(
-                          ([key, value]) => (
+                        {Object.keys(chemicalDoses).length > 0 ? (
+                          Object.entries(chemicalDoses).map(([key, value]) => (
                             <div
                               key={key}
                               className="rounded-lg bg-emerald-900/25 border border-emerald-400/40 px-3 py-2"
@@ -259,7 +518,11 @@ export default function ProcessDesignPage() {
                                 {value} mg/L
                               </div>
                             </div>
-                          )
+                          ))
+                        ) : (
+                          <div className="text-[11px] text-emerald-100/80 mt-1">
+                            No chemical dose data returned from ML service.
+                          </div>
                         )}
                       </div>
                     </div>
@@ -280,29 +543,20 @@ export default function ProcessDesignPage() {
                       Water Category (Rule-based)
                     </div>
                     <div className="mt-1 text-sm font-bold text-slate-900">
-                      {waterType.label}
+                      {waterType.label || "Classified water type"}
                     </div>
-                    <p className="text-[11px] text-slate-600 mt-1">
-                      {waterType.description}
-                    </p>
+                    {waterType.description && (
+                      <p className="text-[11px] text-slate-600 mt-1">
+                        {waterType.description}
+                      </p>
+                    )}
                   </div>
 
                   <div>
                     <span
-                      className={`px-3 py-1 text-[11px] font-medium rounded-full ${
-                        waterType.severity === "very_low"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : waterType.severity === "low"
-                          ? "bg-sky-100 text-sky-700"
-                          : waterType.severity === "medium"
-                          ? "bg-amber-100 text-amber-700"
-                          : waterType.severity === "high"
-                          ? "bg-orange-100 text-orange-700"
-                          : "bg-rose-100 text-rose-700"
-                      }`}
+                      className={`px-3 py-1 text-[11px] font-medium rounded-full ${severityClass}`}
                     >
-                      Severity:{" "}
-                      {waterType.severity.replace("_", " ").toUpperCase()}
+                      Severity: {severity.toUpperCase()}
                     </span>
                   </div>
 
@@ -311,33 +565,51 @@ export default function ProcessDesignPage() {
                       <div className="font-semibold uppercase text-slate-700 text-[11px]">
                         Primary Treatment
                       </div>
-                      <ul className="mt-2 list-disc list-inside space-y-1 text-slate-700">
-                        {waterType.primary.map((step) => (
-                          <li key={step}>{step}</li>
-                        ))}
-                      </ul>
+                      {primarySteps.length ? (
+                        <ul className="mt-2 list-disc list-inside space-y-1 text-slate-700">
+                          {primarySteps.map((step) => (
+                            <li key={step}>{step}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-slate-500">
+                          No primary steps defined in classifier.
+                        </p>
+                      )}
                     </div>
 
                     <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
                       <div className="font-semibold uppercase text-slate-700 text-[11px]">
                         Secondary Treatment
                       </div>
-                      <ul className="mt-2 list-disc list-inside space-y-1 text-slate-700">
-                        {waterType.secondary.map((step) => (
-                          <li key={step}>{step}</li>
-                        ))}
-                      </ul>
+                      {secondarySteps.length ? (
+                        <ul className="mt-2 list-disc list-inside space-y-1 text-slate-700">
+                          {secondarySteps.map((step) => (
+                            <li key={step}>{step}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-slate-500">
+                          No secondary steps defined in classifier.
+                        </p>
+                      )}
                     </div>
 
                     <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
                       <div className="font-semibold uppercase text-slate-700 text-[11px]">
                         Tertiary / Advanced Treatment
                       </div>
-                      <ul className="mt-2 list-disc list-inside space-y-1 text-slate-700">
-                        {waterType.tertiary.map((step) => (
-                          <li key={step}>{step}</li>
-                        ))}
-                      </ul>
+                      {tertiarySteps.length ? (
+                        <ul className="mt-2 list-disc list-inside space-y-1 text-slate-700">
+                          {tertiarySteps.map((step) => (
+                            <li key={step}>{step}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-slate-500">
+                          No tertiary steps defined in classifier.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
