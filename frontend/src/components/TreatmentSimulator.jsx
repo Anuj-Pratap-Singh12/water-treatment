@@ -5,6 +5,11 @@ import { chemicalSelectionLogic } from "../utils/chemicalLogic";
 import { equipmentSelectionLogic } from "../utils/equipmentLogic";
 import { calculateDoses } from "../utils/doseCalculator";
 
+// TODO: replace this with your real water IoT endpoint
+const WATER_IOT_URL = "http://localhost:5001/api/iot/water";
+// TreatmentSimulator will fetch GPT-generated water data from this endpoint
+
+
 export default function TreatmentSimulator({ onSimulate }) {
   const [influent, setInfluent] = useState({
     pH: 7.2,
@@ -28,6 +33,61 @@ export default function TreatmentSimulator({ onSimulate }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [iotLoading, setIotLoading] = useState(false);
+  const [iotError, setIotError] = useState("");
+
+  // 🔌 FRONTEND-ONLY: Fetch influent data from backend IoT endpoint (GPT-powered)
+  const handleLoadFromIot = useCallback(async () => {
+    setIotError("");
+    setIotLoading(true);
+
+    try {
+      const res = await fetch(WATER_IOT_URL);
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch IoT data: ${res.statusText}`);
+      }
+
+      const sensor = await res.json();
+      
+      console.log("✅ API Response received:", sensor);
+
+      // Expecting something like:
+      // {
+      //   ph, tds, turbidity, bod, cod, tn,
+      //   temperature, flow, totalVolume, heavyMetals, source, timestamp
+      // }
+
+      const newInfluent = {
+        ...influent,
+        pH: sensor.ph ?? influent.pH,
+        tds: sensor.tds ?? influent.tds,
+        turbidity: sensor.turbidity ?? influent.turbidity,
+        BOD: sensor.bod ?? influent.BOD,
+        COD: sensor.cod ?? influent.COD,
+        TN: sensor.tn ?? influent.TN,
+        temperature: sensor.temperature ?? influent.temperature,
+        flow: sensor.flow ?? influent.flow,
+        totalVolume: sensor.totalVolume ?? influent.totalVolume,
+        heavyMetals:
+          typeof sensor.heavyMetals === "boolean"
+            ? sensor.heavyMetals
+            : influent.heavyMetals,
+      };
+      
+      console.log("📋 New Influent State:", newInfluent);
+      setInfluent(newInfluent);
+      console.log("✅ State updated successfully");
+      
+    } catch (err) {
+      console.error("❌ Error:", err);
+      setIotError(
+        "Could not load water data from GPT. Check backend is running and OPENAI_API_KEY is set."
+      );
+    } finally {
+      setIotLoading(false);
+    }
+  }, [influent]);
 
   // local stage-wise removal simulation
   const simulate = useCallback(() => {
@@ -130,7 +190,7 @@ export default function TreatmentSimulator({ onSimulate }) {
       tds: influent.tds,
     });
 
-    // 4) Call ML backend (kept same shape as your working version)
+    // 4) Call ML backend (same as your original)
     const qualityPayload = {
       pH: influent.pH,
       tds: influent.tds,
@@ -184,13 +244,36 @@ export default function TreatmentSimulator({ onSimulate }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Influent quality */}
         <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <h4 className="font-semibold text-sm text-slate-900">
-              Influent Quality
-            </h4>
-            <span className="text-[11px] text-slate-500">
-              Raw wastewater conditions
-            </span>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h4 className="font-semibold text-sm text-slate-900">
+                Influent Quality
+              </h4>
+              <span className="text-[11px] text-slate-500">
+                Raw wastewater – filled from IoT or manual inputs
+              </span>
+              {iotError && (
+                <div className="mt-1 text-[11px] text-red-500">{iotError}</div>
+              )}
+              {!iotError && !iotLoading && (
+                <div className="mt-1 text-[11px] text-slate-400">
+                  Last update: {new Date().toLocaleTimeString()}
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleLoadFromIot}
+              disabled={iotLoading}
+              className="inline-flex items-center justify-center rounded-full px-3 py-1.5 text-[11px] font-medium text-emerald-700 border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <span className="relative flex h-2 w-2 mr-1">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              {iotLoading ? "Syncing..." : "Sync from GPT IoT"}
+            </button>
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
@@ -240,7 +323,8 @@ export default function TreatmentSimulator({ onSimulate }) {
               label="Total Volume (L/day)"
               value={influent.totalVolume}
               onChange={(v) =>
-                setInfluent((s) => ({ ...s, totalVolume: v }))}
+                setInfluent((s) => ({ ...s, totalVolume: v }))
+              }
               full
             />
 
@@ -250,7 +334,10 @@ export default function TreatmentSimulator({ onSimulate }) {
                 type="checkbox"
                 checked={influent.heavyMetals}
                 onChange={(e) =>
-                  setInfluent((s) => ({ ...s, heavyMetals: e.target.checked }))
+                  setInfluent((s) => ({
+                    ...s,
+                    heavyMetals: e.target.checked,
+                  }))
                 }
                 className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
               />
