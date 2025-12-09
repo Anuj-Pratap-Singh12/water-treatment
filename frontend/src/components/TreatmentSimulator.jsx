@@ -10,7 +10,7 @@ const WATER_IOT_URL = "http://localhost:5001/api/iot/water";
 // TreatmentSimulator will fetch GPT-generated water data from this endpoint
 
 
-export default function TreatmentSimulator({ onSimulate }) {
+export default function TreatmentSimulator({ onSimulate, initialSensorData = null }) {
   const [influent, setInfluent] = useState({
     pH: 7.2,
     tds: 1200,
@@ -22,7 +22,6 @@ export default function TreatmentSimulator({ onSimulate }) {
     heavyMetals: false,
     flow: 1000,
     totalVolume: 1000000,
-    reusePurpose: "Irrigation (non-food)",
   });
 
   const [eff, setEff] = useState({
@@ -35,6 +34,27 @@ export default function TreatmentSimulator({ onSimulate }) {
   const [error, setError] = useState("");
   const [iotLoading, setIotLoading] = useState(false);
   const [iotError, setIotError] = useState("");
+  const [isSensorLoaded, setIsSensorLoaded] = useState(false);
+
+  // Apply sensor data when it arrives from the Sensors page
+  // This ensures influent quality always equals sensor readings
+  React.useEffect(() => {
+    if (initialSensorData) {
+      setInfluent({
+        pH: initialSensorData.pH ?? 7.2,
+        tds: initialSensorData.tds ?? 1200,
+        turbidity: initialSensorData.turbidity ?? 120,
+        BOD: initialSensorData.BOD ?? 200,
+        COD: initialSensorData.COD ?? 500,
+        TN: initialSensorData.TN ?? 45,
+        temperature: initialSensorData.temperature ?? 30,
+        heavyMetals: initialSensorData.heavyMetals ?? false,
+        flow: initialSensorData.flow ?? 1000,
+        totalVolume: initialSensorData.totalVolume ?? 1000000,
+      });
+      setIsSensorLoaded(true);
+    }
+  }, [initialSensorData]);
 
   // 🔌 FRONTEND-ONLY: Fetch influent data from backend IoT endpoint (GPT-powered)
   const handleLoadFromIot = useCallback(async () => {
@@ -246,9 +266,16 @@ export default function TreatmentSimulator({ onSimulate }) {
         <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h4 className="font-semibold text-sm text-slate-900">
-                Influent Quality
-              </h4>
+              <div className="flex items-center gap-2">
+                <h4 className="font-semibold text-sm text-slate-900">
+                  Influent Quality
+                </h4>
+                {isSensorLoaded && (
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">
+                    📡 Sensor Data Active
+                  </span>
+                )}
+              </div>
               <span className="text-[11px] text-slate-500">
                 Raw wastewater – filled from IoT or manual inputs
               </span>
@@ -344,23 +371,6 @@ export default function TreatmentSimulator({ onSimulate }) {
               <label htmlFor="heavyMetals" className="text-xs text-slate-600">
                 Heavy metals present in significant concentration
               </label>
-            </div>
-
-            <div className="col-span-2 mt-2">
-              <div className="text-xs text-slate-500">Reuse Purpose</div>
-              <select
-                value={influent.reusePurpose}
-                onChange={(e) =>
-                  setInfluent((s) => ({ ...s, reusePurpose: e.target.value }))
-                }
-                className="mt-1 w-full rounded-lg border border-slate-200 p-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-              >
-                <option>Irrigation (non-food)</option>
-                <option>Industrial Cooling</option>
-                <option>Cleaning/Washing</option>
-                <option>Construction Use</option>
-                <option>Groundwater Recharge</option>
-              </select>
             </div>
           </div>
         </div>

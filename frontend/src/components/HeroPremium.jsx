@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import ReactDOM from "react-dom";
 
 export default function HeroPremium({
-  title = "AquaRevive: Freshwater Recovery and Reuse System",
+  title = "ReLeaf: Freshwater Recovery and Reuse System",
   subtitle = "A smart and sustainable solution for recovering, treating, and reusing freshwater to combat water scarcity.",
   onPrimary = () => {},
   onSecondary = () => {},
@@ -40,7 +40,7 @@ export default function HeroPremium({
               transition={{ duration: 0.6, ease: [0.2, 0.9, 0.2, 1] }}
               className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight text-white text-soft-shadow"
             >
-              Aqua<span>  Revive</span>:
+              ReLeaf:
               <span className="block">Freshwater Recovery and Reuse System</span>
             </motion.h1>
 
@@ -107,7 +107,7 @@ export default function HeroPremium({
                   </svg>
                 </div>
                 <div>
-                  <div className="font-bold">AquaRevive</div>
+                  <div className="font-bold">ReLeaf</div>
                   <div className="text-sm text-slate-600">
                     Smart Water Recovery &amp; Reuse
                   </div>

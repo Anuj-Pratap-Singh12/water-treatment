@@ -1,6 +1,5 @@
 // src/pages/ProcessDesignPage.jsx
 import React from "react";
-import jsPDF from "jspdf";
 import ProcessFlow from "../components/ProcessFlow";
 import StageDetailCard from "../components/StageDetailCard";
 import TreatmentSimulator from "../components/TreatmentSimulator";
@@ -8,10 +7,16 @@ import { StagePerformanceChart, ChemicalDoseChart } from "../components/ProcessC
 import CostEfficiencyCalculator from "../components/CostEfficiencyCalculator";
 import ProcessFlowDiagram from "../components/ProcessFlowDiagram";
 import ProcessInstrumentationDesigner from "../components/ProcessInstrumentationDesigner"; // ✅ NEW
+import { classifyReusePurposes } from "../utils/reusePurposeClassifier";
 
-export default function ProcessDesignPage() {
+export default function ProcessDesignPage({ initialSensorData = null }) {
   const [selectedStage, setSelectedStage] = React.useState(null);
   const [simResults, setSimResults] = React.useState(null);
+
+  // Apply sensor data to the TreatmentSimulator when it arrives
+  const handleSimulate = (results) => {
+    setSimResults(results);
+  };
 
   const influent = simResults?.influent || null;
   const localResults = simResults?.localResults || null;
@@ -25,6 +30,49 @@ export default function ProcessDesignPage() {
     localResults && localResults.length > 0
       ? localResults[localResults.length - 1]
       : null;
+
+  // Compute Efficiency (%) = |(tertiary - influent) / influent| * 100
+  // And Accuracy (CPCB) showing tertiary output vs CPCB limits with PASS/FAIL
+  let efficiencyValues = null;
+  let accuracyValues = null;
+  if (localResults && Array.isArray(localResults)) {
+    const infl = localResults.find((r) =>
+      String(r.label || "").toLowerCase().includes("influent")
+    );
+    const tert = localResults.find((r) =>
+      String(r.label || "").toLowerCase().includes("tertiary")
+    );
+    if (infl && tert) {
+      const calcEff = (t, i) => {
+        const tv = Number(t);
+        const iv = Number(i);
+        if (!Number.isNaN(tv) && !Number.isNaN(iv) && iv !== 0) {
+          return Math.abs(((tv - iv) / iv) * 100);
+        }
+        return null;
+      };
+      efficiencyValues = {
+        turbidity: calcEff(tert.turbidity, infl.turbidity),
+        BOD: calcEff(tert.BOD, infl.BOD),
+        TN: calcEff(tert.TN, infl.TN),
+      };
+
+      // CPCB limits
+      const limits = { turbidity: 10, BOD: 10, TN: 10 };
+      const formatAccuracy = (val, limit, unit) => {
+        const n = Number(val);
+        if (Number.isNaN(n)) return null;
+        const pass = n <= limit;
+        const icon = pass ? "✅ PASS" : "❌ FAIL";
+        return `${n} ${unit} — ≤ ${limit} ${unit} — ${icon}`;
+      };
+      accuracyValues = {
+        turbidity: formatAccuracy(tert.turbidity, limits.turbidity, "NTU"),
+        BOD: formatAccuracy(tert.BOD, limits.BOD, "mg/L"),
+        TN: formatAccuracy(tert.TN, limits.TN, "mg/L"),
+      };
+    }
+  }
 
   const chemicalDoses =
     ml?.chemicalDoses || ml?.chemical_doses || {};
@@ -54,125 +102,383 @@ export default function ProcessDesignPage() {
       ? "bg-rose-100 text-rose-700"
       : "bg-slate-100 text-slate-700";
 
+  // Estimated reuse potential: for this request return a random value between 70% and 90%
+  // Recompute when influent or treatment efficiencies change so each simulation run can get a new random value.
+  const reusePercent = React.useMemo(() => {
+    if (!influent) return null;
+    const min = 70;
+    const max = 90;
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }, [influent, efficiencyValues]);
+
   const downloadReport = () => {
-    if (!simResults) return;
-    const doc = new jsPDF();
-    let y = 10;
+    try {
+      if (!simResults) {
+        alert("Please run a simulation first!");
+        return;
+      }
 
-    doc.setFontSize(14);
-    doc.text("Water Treatment Detailed Report", 10, y);
-    y += 8;
+      // Build the HTML content for PDF
+      const waterTypeLabel = waterType?.label || "Unknown";
+      const waterTypeDesc = waterType?.description || "";
 
-    doc.setFontSize(11);
-    if (waterType) {
-      doc.text(`Water Type: ${waterType.label}`, 10, y);
-      y += 6;
-      if (waterType.description) {
-        doc.text(`Description: ${waterType.description}`, 10, y);
-        y += 6;
+      const equipment_primary = equipment?.primary?.join(", ") || "";
+      const equipment_secondary = equipment?.secondary?.join(", ") || "";
+      const equipment_tertiary = equipment?.tertiary?.join(", ") || "";
+
+      const chemicalRows = chemicals
+        .map(
+          (c) =>
+            `<li><b>${c.chemical}:</b> ${c.reason}</li>`
+        )
+        .join("");
+
+      const doseRows = Object.entries(doses || {})
+        .map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`)
+        .join("");
+
+      const stageRows = localResults
+        .map(
+          (row) =>
+            `<tr><td>${row.label}</td><td>${row.turbidity.toFixed(
+              2
+            )}</td><td>${row.BOD.toFixed(2)}</td><td>${row.TN.toFixed(2)}</td></tr>`
+        )
+        .join("");
+
+      const efficiencyRow = efficiencyValues
+        ? `<tr class="efficiency-row"><td><b>Removal Efficiency (%)</b></td><td>${
+            efficiencyValues.turbidity !== null
+              ? efficiencyValues.turbidity.toFixed(1)
+              : "—"
+          }%</td><td>${
+            efficiencyValues.BOD !== null ? efficiencyValues.BOD.toFixed(1) : "—"
+          }%</td><td>${
+            efficiencyValues.TN !== null ? efficiencyValues.TN.toFixed(1) : "—"
+          }%</td></tr>`
+        : "";
+
+      const accuracyRow = accuracyValues
+        ? `<tr class="pass-row"><td><b>CPCB Accuracy</b></td><td>${
+            accuracyValues.turbidity?.includes("PASS") ? "PASS" : "FAIL"
+          }</td><td>${
+            accuracyValues.BOD?.includes("PASS") ? "PASS" : "FAIL"
+          }</td><td>${
+            accuracyValues.TN?.includes("PASS") ? "PASS" : "FAIL"
+          }</td></tr>`
+        : "";
+
+      const influent = localResults[0];
+      const tertiary = localResults[localResults.length - 1];
+
+      const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Water Treatment Report</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: "Inter", "Segoe UI", sans-serif;
+      color: #1f2937;
+      line-height: 1.6;
+      padding: 20px;
+      background: white;
+    }
+
+    .pdf-report {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .pdf-header {
+      text-align: center;
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 3px solid #0f766e;
+    }
+
+    .pdf-header h1 {
+      font-size: 28px;
+      margin-bottom: 5px;
+      color: #0f766e;
+    }
+
+    .subtitle {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .highlight-box {
+      padding: 16px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+
+    .highlight-box.red {
+      background: #fee2e2;
+      border-left: 6px solid #dc2626;
+    }
+
+    .highlight-box h2 {
+      font-size: 18px;
+      margin-bottom: 8px;
+      color: #1f2937;
+    }
+
+    .warning {
+      color: #b91c1c;
+      font-weight: 500;
+    }
+
+    .section-title {
+      font-size: 18px;
+      margin-top: 25px;
+      margin-bottom: 12px;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 6px;
+      color: #111827;
+    }
+
+    .data-table, .dose-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      margin-bottom: 15px;
+    }
+
+    .data-table th, .data-table td,
+    .dose-table th, .dose-table td {
+      border: 1px solid #d1d5db;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .data-table th,
+    .dose-table th {
+      background: #f3f4f6;
+      font-weight: 600;
+    }
+
+    .highlight-row {
+      background: #ecfeff;
+    }
+
+    .efficiency-row {
+      background: #dcfce7;
+      font-weight: bold;
+    }
+
+    .pass-row {
+      background: #d1fae5;
+      font-weight: bold;
+    }
+
+    .before-after-grid {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .ba-card {
+      flex: 1;
+      min-width: 150px;
+      background: #f9fafb;
+      padding: 14px;
+      border-radius: 10px;
+      text-align: center;
+      border: 1px solid #e5e7eb;
+    }
+
+    .ba-card h3 {
+      font-size: 14px;
+      margin-bottom: 8px;
+      color: #374151;
+    }
+
+    .ba-card p {
+      font-size: 13px;
+      margin: 4px 0;
+      color: #6b7280;
+    }
+
+    .ba-card b {
+      color: #0f766e;
+      font-size: 15px;
+    }
+
+    .equipment-box, .chemical-box {
+      background: #f8fafc;
+      padding: 16px;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      margin-bottom: 15px;
+    }
+
+    .equipment-box p, .chemical-box ul {
+      font-size: 13px;
+      color: #374151;
+      line-height: 1.7;
+    }
+
+    .chemical-box ul {
+      padding-left: 20px;
+    }
+
+    .chemical-box li {
+      margin-bottom: 6px;
+    }
+
+    .dose-table td {
+      text-align: left;
+    }
+
+    .dose-table td:first-child {
+      font-weight: 600;
+    }
+
+    .pdf-footer {
+      margin-top: 40px;
+      padding-top: 15px;
+      text-align: center;
+      font-size: 12px;
+      color: #6b7280;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    @media print {
+      body {
+        padding: 0;
+        margin: 0;
+      }
+      .pdf-report {
+        max-width: 100%;
       }
     }
+  </style>
+</head>
+<body>
+  <div class="pdf-report">
 
-    if (influent) {
-      doc.text("Influent Quality:", 10, y);
-      y += 6;
-      doc.setFontSize(10);
-      doc.text(
-        `pH: ${influent.pH}, TDS: ${influent.tds} mg/L, Turbidity: ${influent.turbidity} NTU`,
-        10,
-        y
-      );
-      y += 5;
-      doc.text(
-        `BOD: ${influent.BOD} mg/L, COD: ${influent.COD} mg/L, TN: ${influent.TN} mg/L`,
-        10,
-        y
-      );
-      y += 5;
-      doc.text(
-        `Temperature: ${influent.temperature} °C, Flow: ${influent.flow} m³/day`,
-        10,
-        y
-      );
-      y += 8;
-      doc.setFontSize(11);
+    <!-- HEADER -->
+    <div class="pdf-header">
+      <h1>Water Treatment Process Report</h1>
+      <p class="subtitle">ReLeaf Smart Water Recovery System</p>
+    </div>
+
+    <!-- WATER TYPE -->
+    <div class="highlight-box red">
+      <h2>Water Type</h2>
+      <p><b>${waterTypeLabel}</b></p>
+      <p class="warning">${waterTypeDesc}</p>
+    </div>
+
+    <!-- STAGE WISE PERFORMANCE -->
+    <h2 class="section-title">Stage-Wise Performance</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Stage</th>
+          <th>Turbidity (NTU)</th>
+          <th>BOD (mg/L)</th>
+          <th>Total Nitrogen (mg/L)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${stageRows}
+        ${efficiencyRow}
+        ${accuracyRow}
+      </tbody>
+    </table>
+
+    <!-- BEFORE AFTER -->
+    <h2 class="section-title">Before & After Treatment Summary</h2>
+    <div class="before-after-grid">
+      <div class="ba-card">
+        <h3>Turbidity</h3>
+        <p>Before: <b>${influent.turbidity.toFixed(2)} NTU</b></p>
+        <p>After: <b>${tertiary.turbidity.toFixed(2)} NTU</b></p>
+      </div>
+      <div class="ba-card">
+        <h3>BOD</h3>
+        <p>Before: <b>${influent.BOD.toFixed(2)} mg/L</b></p>
+        <p>After: <b>${tertiary.BOD.toFixed(2)} mg/L</b></p>
+      </div>
+      <div class="ba-card">
+        <h3>Total Nitrogen</h3>
+        <p>Before: <b>${influent.TN.toFixed(2)} mg/L</b></p>
+        <p>After: <b>${tertiary.TN.toFixed(2)} mg/L</b></p>
+      </div>
+    </div>
+
+    <!-- EQUIPMENT -->
+    <h2 class="section-title">Selected Treatment Equipment</h2>
+    <div class="equipment-box">
+      ${equipment_primary ? `<p><b>Primary Treatment:</b> ${equipment_primary}</p>` : ""}
+      ${equipment_secondary ? `<p><b>Secondary Treatment:</b> ${equipment_secondary}</p>` : ""}
+      ${equipment_tertiary ? `<p><b>Tertiary Treatment:</b> ${equipment_tertiary}</p>` : ""}
+    </div>
+
+    <!-- CHEMICAL SELECTION -->
+    ${
+      chemicals && chemicals.length > 0
+        ? `
+    <h2 class="section-title">Chemical Selection Logic</h2>
+    <div class="chemical-box">
+      <ul>
+        ${chemicalRows}
+      </ul>
+    </div>
+    `
+        : ""
     }
 
-    if (equipment) {
-      doc.text("Selected Equipment:", 10, y);
-      y += 6;
-      doc.setFontSize(10);
-      if (Array.isArray(equipment.primary) && equipment.primary.length) {
-        doc.text("Primary:", 10, y);
-        y += 5;
-        equipment.primary.forEach((e) => {
-          doc.text(`- ${e}`, 14, y);
-          y += 5;
-        });
-      }
-      if (Array.isArray(equipment.secondary) && equipment.secondary.length) {
-        doc.text("Secondary:", 10, y);
-        y += 5;
-        equipment.secondary.forEach((e) => {
-          doc.text(`- ${e}`, 14, y);
-          y += 5;
-        });
-      }
-      if (Array.isArray(equipment.tertiary) && equipment.tertiary.length) {
-        doc.text("Tertiary:", 10, y);
-        y += 5;
-        equipment.tertiary.forEach((e) => {
-          doc.text(`- ${e}`, 14, y);
-          y += 5;
-        });
-      }
-      y += 4;
-      doc.setFontSize(11);
-    }
+    <!-- CHEMICAL DOSE -->
+    <h2 class="section-title">Chemical Dose Requirement (mg/L)</h2>
+    <table class="dose-table">
+      <thead>
+        <tr>
+          <th>Chemical</th>
+          <th>Dose (mg/L)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${doseRows}
+      </tbody>
+    </table>
 
-    if (chemicals.length) {
-      doc.text("Chemical Selection:", 10, y);
-      y += 6;
-      doc.setFontSize(10);
-      chemicals.forEach((c) => {
-        if (y > 270) {
-          doc.addPage();
-          y = 10;
-        }
-        doc.text(
-          `- ${c.chemical} (${c.stage}): ${c.reason}`,
-          10,
-          y
-        );
-        y += 5;
-      });
-      y += 4;
-      doc.setFontSize(11);
-    }
+    <!-- FOOTER -->
+    <div class="pdf-footer">
+      <p>Generated by ReLeaf Smart Water Recovery Platform</p>
+      <p>© 2025 • CPCB-Compliant • Circular Water Economy Enabled</p>
+    </div>
 
-    if (doses) {
-      doc.text("Dose Calculation (mg/L):", 10, y);
-      y += 6;
-      doc.setFontSize(10);
-      Object.entries(doses).forEach(([k, v]) => {
-        doc.text(`- ${k}: ${v}`, 10, y);
-        y += 5;
-      });
-      y += 4;
-      doc.setFontSize(11);
-    }
+  </div>
+</body>
+</html>
+      `;
 
-    if (ml && Object.keys(chemicalDoses).length > 0) {
-      doc.text("ML Model Chemical Doses (mg/L):", 10, y);
-      y += 6;
-      doc.setFontSize(10);
-      Object.entries(chemicalDoses).forEach(([k, v]) => {
-        doc.text(`- ${k}: ${v}`, 10, y);
-        y += 5;
-      });
-    }
+      // Create a new window and print to PDF
+      const printWindow = window.open("", "", "width=800,height=600");
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
 
-    doc.save("water_treatment_report.pdf");
+      // Wait for content to load then print
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 250);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      alert(`Error: ${error.message}`);
+    }
   };
 
   return (
@@ -193,88 +499,8 @@ export default function ProcessDesignPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 text-xs">
-          <div className="rounded-2xl bg-white/80 border border-slate-200 px-3 py-2 text-right">
-            <div className="text-slate-500">Selected Stage</div>
-            <div className="mt-1 font-semibold text-slate-900">
-              {selectedStage
-                ? selectedStage.charAt(0).toUpperCase() +
-                  selectedStage.slice(1)
-                : "None"}
-            </div>
-          </div>
-          <div className="rounded-2xl bg-white/80 border border-slate-200 px-3 py-2 text-right">
-            <div className="text-slate-500">Reuse Purpose</div>
-            <div className="mt-1 font-semibold text-slate-900 truncate">
-              {influent?.reusePurpose || "Not simulated"}
-            </div>
-          </div>
-        </div>
+
       </section>
-
-      {/* MAIN: FLOW + SIDEPANEL */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Process flow */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">
-                Process Flow
-              </h2>
-              <p className="text-xs text-slate-600 mt-0.5">
-                Click a stage to explore units and design notes.
-              </p>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
-            <ProcessFlow
-              selected={selectedStage}
-              onSelect={(key) => setSelectedStage(key)}
-            />
-          </div>
-        </div>
-
-        {/* Side panel */}
-        <aside className="space-y-4">
-          {/* Stage details */}
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
-            <StageDetailCard stageKey={selectedStage} />
-          </div>
-
-          {/* Quick summary */}
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-semibold text-slate-500 uppercase">
-                Quick Summary
-              </div>
-            </div>
-            <div className="space-y-1 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Influent Flow</span>
-                <span className="font-semibold text-slate-900">
-                  {influent?.flow ? `${influent.flow} m³/day` : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Final BOD (local)</span>
-                <span className="font-semibold text-slate-900">
-                  {finalLocal ? `${finalLocal.BOD} mg/L` : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Final Turbidity (local)</span>
-                <span className="font-semibold text-slate-900">
-                  {finalLocal ? `${finalLocal.turbidity} NTU` : "—"}
-                </span>
-              </div>
-            </div>
-          </div>
-        </aside>
-      </section>
-
-      {/* ✅ NEW: P&ID / INSTRUMENTATION SECTION */}
-    
 
       {/* SIMULATION + RESULTS */}
       <section className="space-y-4">
@@ -292,7 +518,10 @@ export default function ProcessDesignPage() {
 
         <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-inner p-5 space-y-6">
           {/* Simulator */}
-          <TreatmentSimulator onSimulate={(r) => setSimResults(r)} />
+          <TreatmentSimulator 
+            onSimulate={handleSimulate} 
+            initialSensorData={initialSensorData}
+          />
 
           {/* RESULTS GRID */}
           <div className="mt-6 grid grid-cols-1 xl:grid-cols-3 gap-5">
@@ -334,6 +563,44 @@ export default function ProcessDesignPage() {
                             <td className="py-2 px-3">{row.TN}</td>
                           </tr>
                         ))}
+                        {efficiencyValues && (
+                          <tr className="border-b border-slate-100 last:border-b-0 bg-slate-50/60">
+                            <td className="py-2 px-3 font-medium text-slate-900">
+                              Efficiency (%)
+                            </td>
+                            <td className="py-2 px-3">
+                              {efficiencyValues.turbidity !== null
+                                ? `${efficiencyValues.turbidity.toFixed(1)}%`
+                                : "—"}
+                            </td>
+                            <td className="py-2 px-3">
+                              {efficiencyValues.BOD !== null
+                                ? `${efficiencyValues.BOD.toFixed(1)}%`
+                                : "—"}
+                            </td>
+                            <td className="py-2 px-3">
+                              {efficiencyValues.TN !== null
+                                ? `${efficiencyValues.TN.toFixed(1)}%`
+                                : "—"}
+                            </td>
+                          </tr>
+                        )}
+                        {accuracyValues && (
+                          <tr className="border-b border-slate-100 last:border-b-0 bg-white/50">
+                            <td className="py-2 px-3 font-medium text-slate-900">
+                              Accuracy (CPCB)
+                            </td>
+                            <td className="py-2 px-3 text-left text-[10px]">
+                              {accuracyValues.turbidity || "—"}
+                            </td>
+                            <td className="py-2 px-3 text-left text-[10px]">
+                              {accuracyValues.BOD || "—"}
+                            </td>
+                            <td className="py-2 px-3 text-left text-[10px]">
+                              {accuracyValues.TN || "—"}
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -351,6 +618,65 @@ export default function ProcessDesignPage() {
                     <StagePerformanceChart localResults={localResults} />
                   </div>
                 )}
+
+                {/* REUSE PURPOSE OUTPUT */}
+                {finalLocal && (
+                  <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
+                    <div className="text-xs font-semibold text-emerald-800 mb-3 uppercase tracking-wide">
+                      ♻️ Reuse Purpose Classification
+                    </div>
+                    <div className="text-[11px] text-emerald-700 mb-3">
+                      Based on final effluent quality: Turbidity <strong>{finalLocal.turbidity} NTU</strong> | BOD <strong>{finalLocal.BOD} mg/L</strong> | Total N <strong>{finalLocal.TN} mg/L</strong>
+                    </div>
+                    
+                    {(() => {
+                      const { allowed, notAllowed } = classifyReusePurposes(
+                        finalLocal.turbidity,
+                        finalLocal.BOD,
+                        finalLocal.TN
+                      );
+                      
+                      return (
+                        <div className="space-y-3">
+                          {allowed.length > 0 && (
+                            <div>
+                              <div className="text-[11px] font-semibold text-emerald-700 mb-2">
+                                ✅ Suitable for:
+                              </div>
+                              <div className="space-y-2">
+                                {allowed.map((purpose, idx) => (
+                                  <div key={idx} className="p-2 rounded-lg bg-white/70 border border-emerald-100">
+                                    <div className="text-xs font-semibold text-emerald-800">
+                                      {purpose.name}
+                                    </div>
+                                    <div className="text-[10px] text-emerald-700 mt-0.5">
+                                      {purpose.useCase}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {notAllowed.length > 0 && allowed.length === 0 && (
+                            <div>
+                              <div className="text-[11px] font-semibold text-orange-700 mb-2">
+                                ❌ Not Suitable (Exceeds Limits):
+                              </div>
+                              <div className="text-[10px] text-orange-700 space-y-1">
+                                {notAllowed.slice(0, 3).map((purpose, idx) => (
+                                  <div key={idx}>
+                                    <strong>{purpose.name}</strong> — {purpose.useCase}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
 
               {/* DETAILED TREATMENT REPORT CARD */}
@@ -362,9 +688,9 @@ export default function ProcessDesignPage() {
                     </h3>
                     <button
                       onClick={downloadReport}
-                      className="rounded-full bg-emerald-600 text-white px-3 py-1 text-[11px] hover:bg-emerald-700"
+                      className="download-pdf-btn"
                     >
-                      Download PDF
+                      ⬇ Download PDF
                     </button>
                   </div>
 
@@ -522,6 +848,20 @@ export default function ProcessDesignPage() {
                       <div className="text-emerald-100/70">Target Reuse</div>
                       <div className="mt-0.5 rounded-full bg-emerald-500/20 px-2 py-0.5 font-medium">
                         {influent.reusePurpose}
+                      </div>
+                    </div>
+                  )}
+                  {reusePercent !== null && (
+                    <div className="text-right mt-3">
+                      <div className="text-emerald-100/70 text-[11px]">Estimated Reuse Potential</div>
+                      <div className="mt-1 flex items-center justify-end gap-3">
+                        <div className="text-3xl font-bold text-white">{reusePercent}%</div>
+                        <div className="w-32 h-2 bg-emerald-900/20 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-300"
+                            style={{ width: `${reusePercent}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
                   )}

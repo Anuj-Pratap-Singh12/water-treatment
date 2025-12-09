@@ -16,7 +16,7 @@ export default function Footer(){
                 </svg>
               </div>
               <div>
-                <div className="font-extrabold tracking-tight text-lg leading-tight">SWRR</div>
+                <div className="font-extrabold tracking-tight text-lg leading-tight">ReLeaf</div>
                 <div className="text-xs text-slate-600">Smart Water Recovery &amp; Reuse</div>
               </div>
             </div>
@@ -89,7 +89,7 @@ export default function Footer(){
 
           {/* Copyright */}
           <div className="text-sm text-slate-600">
-            © {year} SWRR • Neilsoft Ltd. • All rights reserved.
+            © {year} ReLeaf • Neilsoft Ltd. • All rights reserved.
           </div>
         </div>
       </div>

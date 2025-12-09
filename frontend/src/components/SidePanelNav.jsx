@@ -3,15 +3,15 @@ import React from "react";
 export default function SidePanelNav({ current = "home", onNavigate = () => {} }) {
   const [open, setOpen] = React.useState(false);
 
-  // open via custom event if you emit: window.dispatchEvent(new Event("swrr:openNav"))
+  // open via custom event if you emit: window.dispatchEvent(new Event("releaf:openNav"))
   React.useEffect(() => {
     const openHandler = () => setOpen(true);
     const toggleHandler = () => setOpen((v) => !v);
-    window.addEventListener("swrr:openNav", openHandler);
-    window.addEventListener("swrr:toggleNav", toggleHandler);
+    window.addEventListener("releaf:openNav", openHandler);
+    window.addEventListener("releaf:toggleNav", toggleHandler);
     return () => {
-      window.removeEventListener("swrr:openNav", openHandler);
-      window.removeEventListener("swrr:toggleNav", toggleHandler);
+      window.removeEventListener("releaf:openNav", openHandler);
+      window.removeEventListener("releaf:toggleNav", toggleHandler);
     };
   }, []);
 
@@ -27,23 +27,23 @@ export default function SidePanelNav({ current = "home", onNavigate = () => {} }
     if (open) {
       const prev = document.body.style.overflow;
       document.body.style.overflow = "hidden";
-      window.dispatchEvent(new Event("swrr:navOpen"));
+      window.dispatchEvent(new Event("releaf:navOpen"));
       return () => {
         document.body.style.overflow = prev;
       };
     } else {
-      window.dispatchEvent(new Event("swrr:navClose"));
+      window.dispatchEvent(new Event("releaf:navClose"));
     }
   }, [open]);
 
   const menuItems = [
     { key: "home", label: "Overview" },
     { key: "dashboard", label: "Dashboard" },
-    { key: "swrr", label: "SWRR Dashboard" },
+    { key: "releaf", label: "ReLeaf Dashboard" },
     { key: "process", label: "Process Designer" },
+    { key: "sensors", label: "Sensors" },
     { key: "marketplace", label: "Marketplace" },
     { key: "edna", label: "eDNA Monitor" },
-    { key: "analytics", label: "Analytics" },
     { key: "reports", label: "Reports" },
   ];
 
@@ -80,7 +80,7 @@ export default function SidePanelNav({ current = "home", onNavigate = () => {} }
                 </svg>
               </div>
               <div>
-                <div className="font-semibold text-slate-800 dark:text-slate-100">SWRR</div>
+                <div className="font-semibold text-slate-800 dark:text-slate-100">ReLeaf</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Smart Water Recovery</div>
               </div>
             </div>

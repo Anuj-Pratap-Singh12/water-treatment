@@ -1,13 +1,10 @@
 import React from "react";
-import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, PieChart, Pie, Cell, Legend
-} from "recharts";
 
 // Using modern inline SVG icons instead of raster images
 // to achieve a cleaner, high-quality look without extra deps.
 import HeroPremium from "../components/HeroPremium";
 import useGsapScrollAnimations from "../hooks/useGsapScrollAnimations";
+import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 export default function HomePage({ onNavigate }) {
   useGsapScrollAnimations();
@@ -78,8 +75,8 @@ export default function HomePage({ onNavigate }) {
       {/* Premium Hero */}
       <HeroPremium
         subtitle="A smart and sustainable solution for recovering, treating, and reusing freshwater to combat water scarcity."
-        onPrimary={() => onNavigate?.("analytics")}
-        onSecondary={() => onNavigate?.("process")}
+        onPrimary={() => onNavigate?.("process")}
+        onSecondary={() => onNavigate?.("marketplace")}
       />
 
       {/* ---------------- MISSION ---------------- */}
@@ -145,67 +142,161 @@ export default function HomePage({ onNavigate }) {
       </section>
 
       {/* ---------------- CHARTS SECTION ---------------- */}
-      <section className="container mx-auto max-w-6xl px-6 pb-20 space-y-10">
-        <h2 className="text-4xl md:text-5xl font-bold text-center text-slate-800">
-          Analytics <span className="text-gradient-brand">Overview</span>
-        </h2>
-        <p className="mt-2 text-center text-slate-600 max-w-3xl mx-auto">
-          Live operational insights across intake, treatment, and reuse streams.
-          Benchmark performance and track key metrics to drive smarter decisions.
-        </p>
-
-        {/* Charts Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-          {/* Line Chart */}
-          <div className="glass-card p-6 rounded-2xl min-w-0 gsap-card transition-transform transition-shadow duration-300 hover:scale-[1.02] hover:shadow-xl will-change-transform">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Weekly Flow (<span className="text-gradient-brand">kL</span>)</h3>
-            <div className="h-64" style={{ minWidth: 0 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={weeklyFlow}>
-                  <XAxis dataKey="day" tick={{ fill: "#475569" }} />
-                  <YAxis tick={{ fill: "#475569" }} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="intake" stroke="#3B82F6" strokeWidth={3} />
-                  <Line type="monotone" dataKey="reuse" stroke="#06B6D4" strokeWidth={3} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Pie Chart */}
-          <div className="glass-card p-6 rounded-2xl min-w-0 gsap-card transition-transform transition-shadow duration-300 hover:scale-[1.02] hover:shadow-xl will-change-transform">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Reuse by Sector (<span className="text-gradient-brand">%</span>)</h3>
-            <div className="h-64" style={{ minWidth: 0 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={reuseBySector}
-                    dataKey="value"
-                    nameKey="sector"
-                    innerRadius={50}
-                    outerRadius={90}
-                    paddingAngle={4}
-                  >
-                    {reuseBySector.map((entry, index) => (
-                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Legend wrapperStyle={{ color: "#334155" }} />
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+      <section className="container mx-auto max-w-6xl px-6 py-16">
+        <div className="mb-12 text-center gsap-fade-up">
+          <h2 className="text-4xl md:text-5xl font-bold text-slate-800 mb-3">
+            Performance <span className="text-gradient-brand">Analytics</span>
+          </h2>
+          <p className="text-lg text-slate-600">Real-time insights into water recovery and treatment operations</p>
         </div>
 
-        {/* CTA */}
-        <div className="text-center mt-10">
-          <button
-            onClick={() => onNavigate?.("analytics")}
-            className="btn-primary btn-animated will-change-transform hover:-translate-y-[2px] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
-          >
-            View Detailed Analytics
-          </button>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Yearly Water Recovery Pie Chart */}
+          <div className="group bg-gradient-to-br from-white via-cyan-50/30 to-blue-50/30 rounded-3xl shadow-lg hover:shadow-2xl p-8 border border-slate-200/50 transition-all duration-300 backdrop-blur-sm gsap-card">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-2xl font-bold text-slate-800 mb-1">Yearly Water Recovery</h3>
+                <p className="text-sm text-slate-500">Distribution across 4 major industries</p>
+              </div>
+              <div className="text-4xl font-bold text-cyan-600">100%</div>
+            </div>
+            <ResponsiveContainer width="100%" height={350}>
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: "Textile", value: 35, description: "35%" },
+                    { name: "Dairy", value: 25, description: "25%" },
+                    { name: "Pharmaceutical", value: 20, description: "20%" },
+                    { name: "Food Processing", value: 20, description: "20%" },
+                  ]}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={true}
+                  label={({ name, value }) => `${name} ${value}%`}
+                  outerRadius={100}
+                  innerRadius={50}
+                  fill="#8884d8"
+                  dataKey="value"
+                  animationBegin={0}
+                  animationDuration={800}
+                  animationEasing="ease-out"
+                >
+                  <Cell fill="#06b6d4" />
+                  <Cell fill="#3b82f6" />
+                  <Cell fill="#10b981" />
+                  <Cell fill="#f59e0b" />
+                </Pie>
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: "rgba(255, 255, 255, 0.95)",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "12px",
+                    boxShadow: "0 10px 25px rgba(0, 0, 0, 0.1)",
+                  }}
+                  formatter={(value) => `${value}%`}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
+              <div className="flex items-center gap-2 p-3 bg-cyan-50/50 rounded-lg">
+                <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
+                <span className="text-slate-700"><strong>Textile:</strong> 35%</span>
+              </div>
+              <div className="flex items-center gap-2 p-3 bg-blue-50/50 rounded-lg">
+                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                <span className="text-slate-700"><strong>Dairy:</strong> 25%</span>
+              </div>
+              <div className="flex items-center gap-2 p-3 bg-green-50/50 rounded-lg">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <span className="text-slate-700"><strong>Pharma:</strong> 20%</span>
+              </div>
+              <div className="flex items-center gap-2 p-3 bg-amber-50/50 rounded-lg">
+                <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                <span className="text-slate-700"><strong>Food:</strong> 20%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Weekly Water Treated Quantity Line Chart */}
+          <div className="group bg-gradient-to-br from-white via-emerald-50/30 to-teal-50/30 rounded-3xl shadow-lg hover:shadow-2xl p-8 border border-slate-200/50 transition-all duration-300 backdrop-blur-sm gsap-card">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-2xl font-bold text-slate-800 mb-1">Weekly Water Treated</h3>
+                <p className="text-sm text-slate-500">Treatment and discharge volume trends</p>
+              </div>
+              <div className="text-4xl font-bold text-emerald-600">10.1K L</div>
+            </div>
+            <ResponsiveContainer width="100%" height={350}>
+              <LineChart
+                data={[
+                  { day: "Mon", treated: 1200, discharged: 300 },
+                  { day: "Tue", treated: 1400, discharged: 350 },
+                  { day: "Wed", treated: 1600, discharged: 400 },
+                  { day: "Thu", treated: 1550, discharged: 380 },
+                  { day: "Fri", treated: 1800, discharged: 450 },
+                  { day: "Sat", treated: 1300, discharged: 320 },
+                  { day: "Sun", treated: 1100, discharged: 270 },
+                ]}
+                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis 
+                  dataKey="day" 
+                  stroke="#64748b"
+                  style={{ fontSize: "12px", fontWeight: "500" }}
+                />
+                <YAxis 
+                  stroke="#64748b"
+                  style={{ fontSize: "12px" }}
+                  label={{ value: "Volume (L)", angle: -90, position: "insideLeft" }}
+                />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: "rgba(255, 255, 255, 0.95)",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "12px",
+                    boxShadow: "0 10px 25px rgba(0, 0, 0, 0.1)",
+                  }}
+                  cursor={{ stroke: "#cbd5e1", strokeWidth: 2 }}
+                  formatter={(value) => `${value} L`}
+                />
+                <Legend 
+                  wrapperStyle={{ paddingTop: "20px" }}
+                  iconType="line"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="treated" 
+                  stroke="#06b6d4" 
+                  strokeWidth={3}
+                  name="Treated Water" 
+                  dot={{ fill: "#06b6d4", r: 5 }}
+                  activeDot={{ r: 7 }}
+                  animationDuration={800}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="discharged" 
+                  stroke="#f59e0b" 
+                  strokeWidth={3}
+                  name="Discharged Water" 
+                  dot={{ fill: "#f59e0b", r: 5 }}
+                  activeDot={{ r: 7 }}
+                  animationDuration={800}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <div className="p-4 bg-cyan-50/50 rounded-lg">
+                <p className="text-xs text-slate-500 mb-1">Avg Treated</p>
+                <p className="text-2xl font-bold text-cyan-600">1443 L</p>
+              </div>
+              <div className="p-4 bg-amber-50/50 rounded-lg">
+                <p className="text-xs text-slate-500 mb-1">Avg Discharged</p>
+                <p className="text-2xl font-bold text-amber-600">367 L</p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </div>

@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
  * Simplified header that includes:
  * - Brand
  * - Theme toggle (cycles built-in themes)
- * - Open menu button (dispatches swrr:openNav)
+ * - Open menu button (dispatches releaf:openNav)
  *
  * Note: Theme toggles apply classes to document.documentElement (root).
  * Ensure your CSS supports .theme-emerald, .theme-night, .theme-dark if you use them.
@@ -16,9 +16,8 @@ import { motion, AnimatePresence } from "framer-motion";
 const THEMES = ["light", "theme-emerald", "theme-night", "dark"];
 const NAV_ITEMS = [
   { id: "home", label: "Home" },
-  { id: "analytics", label: "Analytics" },
-  { id: "sensors", label: "Sensors" },
   { id: "process", label: "Process" },
+  { id: "sensors", label: "Sensors" },
   { id: "marketplace", label: "Marketplace" },
 ];
 
@@ -34,7 +33,7 @@ export default function Header({ current = "home", onNavigate = () => {} }) {
   const toggleMenu = () => {
     setMobileOpen((v) => !v);
     // keep side drawer in sync if needed
-    window.dispatchEvent(new CustomEvent("swrr:toggleNav"));
+    window.dispatchEvent(new CustomEvent("releaf:toggleNav"));
   };
 
   const [themeIndex, setThemeIndex] = React.useState(0);
@@ -58,11 +57,11 @@ export default function Header({ current = "home", onNavigate = () => {} }) {
   React.useEffect(() => {
     const onOpen = () => setNavOpen(true);
     const onClose = () => setNavOpen(false);
-    window.addEventListener("swrr:navOpen", onOpen);
-    window.addEventListener("swrr:navClose", onClose);
+    window.addEventListener("releaf:navOpen", onOpen);
+    window.addEventListener("releaf:navClose", onClose);
     return () => {
-      window.removeEventListener("swrr:navOpen", onOpen);
-      window.removeEventListener("swrr:navClose", onClose);
+      window.removeEventListener("releaf:navOpen", onOpen);
+      window.removeEventListener("releaf:navClose", onClose);
     };
   }, []);
 
@@ -124,7 +123,7 @@ export default function Header({ current = "home", onNavigate = () => {} }) {
               </svg>
             </div>
             <div>
-              <div className="font-extrabold tracking-tight text-lg leading-tight">SWRR</div>
+              <div className="font-extrabold tracking-tight text-lg leading-tight">ReLeaf</div>
               <div className="text-xs text-slate-600">Smart Water Recovery &amp; Reuse</div>
             </div>
           </div>

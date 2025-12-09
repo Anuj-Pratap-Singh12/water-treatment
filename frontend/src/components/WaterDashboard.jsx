@@ -3,7 +3,7 @@ import React from "react";
 
 /**
  * WaterDashboard.jsx
- * Single-file, drop-in React component for "Smart Water Recovery & Reuse (SWRR)" dashboard.
+ * Single-file, drop-in React component for "Smart Water Recovery & Reuse (ReLeaf)" dashboard.
  *
  * Usage: import WaterDashboard from "./components/WaterDashboard"; <WaterDashboard />
  *

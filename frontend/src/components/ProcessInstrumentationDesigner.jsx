@@ -335,11 +335,6 @@ export default function ProcessInstrumentationDesigner({
           </div>
         </div>
       </div>
-
-      {/* Summary */}
-      <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800">
-        <strong>Live Parameters:</strong> Flow {flow.toFixed(1)} m³/h | Turbidity {turbidity.toFixed(1)} NTU | TDS {tds.toFixed(0)} mg/L | pH {ph.toFixed(1)} | Pump {pumpOn ? "ON" : "OFF"} | Valve {valveOpen ? "OPEN" : "CLOSED"} | Tank {tankLevel}%
-      </div>
     </div>
   );
 }

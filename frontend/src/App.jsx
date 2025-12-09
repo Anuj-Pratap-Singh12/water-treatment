@@ -6,7 +6,6 @@ import WaterDashboard from "./components/WaterDashboard";
 import HomePage from "./pages/HomePage";
 import DashboardPage from "./pages/DashboardPage";
 import SensorsPage from "./pages/SensorsPage";
-import AnalyticsPage from "./pages/AnalyticsPage";
 import ReportsPage from "./pages/ReportsPage";
 import ProcessDesignPage from "./pages/ProcessDesignPage";
 import MarketplacePage from "./pages/MarketplacePage";
@@ -27,21 +26,30 @@ export default function App() {
   // simple route state (keeps your project's existing structure)
   const [route, setRoute] = React.useState("home");
 
+  // Shared sensor data state
+  const [sensorData, setSensorData] = React.useState(null);
+
   // initialize global scroll reveal (applies to elements with class "reveal")
   // call at top-level so every page benefits from reveals
   useScrollReveal();
+
+  // Handle loading sensor data
+  const handleLoadSensorData = (data) => {
+    setSensorData(data);
+    // Navigate to process page after loading sensor data
+    setRoute("process");
+  };
 
   // pages dictionary
   const pages = {
     home: <HomePage onNavigate={setRoute} />,
     // NOTE: If WaterDashboard replaces the old DashboardPage, ensure you map it here.
-    // Assuming 'swrr' is the correct key based on previous conversation:
+    // Assuming 'releaf' is the correct key based on previous conversation:
     dashboard: <DashboardPage />, 
-    sensors: <SensorsPage />,
-    analytics: <AnalyticsPage />,
+    sensors: <SensorsPage onLoadSensorData={handleLoadSensorData} />,
     reports: <ReportsPage />,
-    process: <ProcessDesignPage />,
-    swrr: <WaterDashboard />, // <-- WaterDashboard is correctly registered here
+    process: <ProcessDesignPage initialSensorData={sensorData} />,
+    releaf: <WaterDashboard />, // <-- WaterDashboard is correctly registered here
     marketplace: <MarketplacePage />,
     edna: <EDNAMonitorPage />,
   };

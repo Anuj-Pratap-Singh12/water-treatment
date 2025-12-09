@@ -4,7 +4,7 @@ import { exportCsv } from "../services/mockApi";
 
 export default function ReportsPage(){
   const download = () => {
-    exportCsv([{report:"SWRR Demo", date:new Date().toISOString(), author:"Team"}], "swrr_report.csv");
+    exportCsv([{report:"ReLeaf Demo", date:new Date().toISOString(), author:"Team"}], "releaf_report.csv");
   };
 
   return (

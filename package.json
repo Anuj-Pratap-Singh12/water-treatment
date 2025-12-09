@@ -1,0 +1,10 @@
+{
+  "name": "water-treatment-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "cd ./frontend && npm run dev",
+    "dev:frontend": "cd ./frontend && npm run dev",
+    "start": "npm run dev"
+  }
+}
