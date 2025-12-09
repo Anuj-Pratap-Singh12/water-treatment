@@ -26,20 +26,22 @@ export default function ProcessInstrumentationDesigner({
 
   // Unit operations
   const units = [
-    { id: "intake", label: "Intake", x: 80, y: 150, type: "pump" },
-    { id: "coagulation", label: "Coagulation", x: 200, y: 150, type: "tank" },
-    { id: "sedimentation", label: "Sedimentation", x: 320, y: 150, type: "clarifier" },
-    { id: "filtration", label: "Filtration", x: 440, y: 150, type: "filter" },
-    { id: "storage", label: "Storage", x: 560, y: 150, type: "tank" },
+    { id: "intake", label: "Intake", x: 150, y: 250, type: "pump" },
+    { id: "coagulation", label: "Coagulation", x: 350, y: 250, type: "tank" },
+    { id: "sedimentation", label: "Sedimentation", x: 550, y: 250, type: "clarifier" },
+    { id: "filtration", label: "Filtration", x: 750, y: 250, type: "filter" },
+    { id: "storage", label: "Storage", x: 950, y: 250, type: "tank" },
   ];
+
+  const flowActive = pumpOn && valveOpen;
 
   // Instruments mapped to locations
   const instruments = [
-    { id: "FT-101", label: "FT-101", unit: "Flow", x: 130, y: 80, value: `${flow.toFixed(1)} m³/h` },
-    { id: "PH-401", label: "PH-401", unit: "pH", x: 270, y: 80, value: `${ph.toFixed(1)}` },
-    { id: "P-101", label: "P-101", unit: "Pump", x: 80, y: 200, value: pumpOn ? "ON" : "OFF" },
-    { id: "V-301", label: "V-301", unit: "Valve", x: 440, y: 200, value: valveOpen ? "OPEN" : "CLOSED" },
-    { id: "LT-301", label: "LT-301", unit: "Tank Level", x: 560, y: 80, value: `${tankLevel}%` },
+    { id: "FT-101", label: "FT-101", unit: "Flow", x: 220, y: 120, value: `${flow.toFixed(1)} m³/h` },
+    { id: "PH-401", label: "PH-401", unit: "pH", x: 470, y: 120, value: `${ph.toFixed(1)}` },
+    { id: "P-101", label: "P-101", unit: "Pump", x: 150, y: 350, value: pumpOn ? "ON" : "OFF" },
+    { id: "V-301", label: "V-301", unit: "Valve", x: 750, y: 350, value: valveOpen ? "OPEN" : "CLOSED" },
+    { id: "LT-301", label: "LT-301", unit: "Tank Level", x: 950, y: 120, value: `${tankLevel}%` },
   ];
 
   // Render unit operation symbol
@@ -51,51 +53,59 @@ export default function ProcessInstrumentationDesigner({
     if (unit.type === "pump") {
       return (
         <g key={unit.id}>
-          <circle
-            cx={unit.x}
-            cy={unit.y}
-            r="20"
-            fill={color}
-            stroke={stroke}
-            strokeWidth="2"
-            className="cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => {
-              setPumpOn(!pumpOn);
-              onNodeClick(unit.id);
-            }}
-          />
-          <text x={unit.x} y={unit.y} textAnchor="middle" dominantBaseline="middle" fontSize="12" fontWeight="600" fill="#1e293b">
-            P
-          </text>
+          <g transform={`translate(${unit.x}, ${unit.y})`} className="cursor-pointer" onClick={() => { setPumpOn(!pumpOn); onNodeClick(unit.id); }}>
+            <circle r="26" fill="url(#pipeGradient)" stroke="#065f46" strokeWidth="2" filter="url(#shadow)" />
+            {/* pump rotor */}
+            <g className={pumpOn ? 'pump-spin' : ''}>
+              <rect x={-3} y={-14} width={6} height={28} rx="2" fill="#fde68a" />
+              <rect x={-14} y={-3} width={28} height={6} rx="2" fill="#fde68a" />
+            </g>
+          </g>
+          <text x={unit.x} y={unit.y + 36} textAnchor="middle" fontSize="12" fontWeight="600" fill="#0f172a">P-101</text>
         </g>
       );
     } else if (unit.type === "tank") {
       return (
         <g key={unit.id}>
-          <ellipse cx={unit.x} cy={unit.y - 12} rx="18" ry="10" fill="#c7d2fe" stroke="#6366f1" strokeWidth="2" />
-          <rect x={unit.x - 18} y={unit.y - 12} width="36" height="28" fill="#e0e7ff" stroke="#6366f1" strokeWidth="2" />
-          <ellipse cx={unit.x} cy={unit.y + 16} rx="18" ry="10" fill="#6366f1" stroke="#6366f1" strokeWidth="2" />
-          <text x={unit.x} y={unit.y} textAnchor="middle" dominantBaseline="middle" fontSize="11" fontWeight="600" fill="#1e293b">
-            {unit.label.split(" ")[0]}
+          <g filter="url(#shadow)">
+            <rect x={unit.x - 42} y={unit.y - 36} width="84" height="72" rx="10" fill="#eef2ff" stroke="#6366f1" strokeWidth="2" />
+            <rect x={unit.x - 36} y={unit.y - 28} width="72" height="56" rx="8" fill="#fff" />
+          </g>
+          <text x={unit.x} y={unit.y} textAnchor="middle" dominantBaseline="middle" fontSize="13" fontWeight="700" fill="#0f172a">
+            {unit.label}
           </text>
+          <title>{unit.label} — Click to open</title>
         </g>
       );
     } else if (unit.type === "clarifier") {
       return (
         <g key={unit.id}>
-          <circle cx={unit.x} cy={unit.y} r="18" fill="#fef3c7" stroke="#f59e0b" strokeWidth="2" className="cursor-pointer hover:opacity-80" onClick={() => onNodeClick(unit.id)} />
-          <text x={unit.x} y={unit.y - 5} textAnchor="middle" fontSize="10" fontWeight="600" fill="#1e293b">
+          <g filter="url(#shadow)" className="cursor-pointer" onClick={() => onNodeClick(unit.id)}>
+            <circle cx={unit.x} cy={unit.y} r="34" fill="#fff7ed" stroke="#fb923c" strokeWidth="2" />
+            <circle cx={unit.x} cy={unit.y} r="20" fill="#fff" />
+          </g>
+          <text x={unit.x} y={unit.y - 8} textAnchor="middle" fontSize="13" fontWeight="700" fill="#0f172a">
             {unit.label}
           </text>
+          <title>{unit.label} — Settling Tank</title>
         </g>
       );
     } else if (unit.type === "filter") {
       return (
         <g key={unit.id}>
-          <rect x={unit.x - 15} y={unit.y - 15} width="30" height="30" fill="#fca5a5" stroke="#dc2626" strokeWidth="2" rx="3" className="cursor-pointer hover:opacity-80" onClick={() => onNodeClick(unit.id)} />
-          <text x={unit.x} y={unit.y} textAnchor="middle" dominantBaseline="middle" fontSize="11" fontWeight="600" fill="#1e293b">
-            F
+          <g filter="url(#shadow)" className="cursor-pointer" onClick={() => onNodeClick(unit.id)}>
+            <rect x={unit.x - 36} y={unit.y - 28} width="72" height="56" rx="8" fill="#fff1f2" stroke="#ef4444" strokeWidth="2" />
+            {/* filter media lines */}
+            <g stroke="#ef4444" strokeWidth="2">
+              <line x1={unit.x - 24} y1={unit.y - 12} x2={unit.x + 24} y2={unit.y - 12} />
+              <line x1={unit.x - 24} y1={unit.y} x2={unit.x + 24} y2={unit.y} />
+              <line x1={unit.x - 24} y1={unit.y + 12} x2={unit.x + 24} y2={unit.y + 12} />
+            </g>
+          </g>
+          <text x={unit.x} y={unit.y + 30} textAnchor="middle" dominantBaseline="middle" fontSize="12" fontWeight="700" fill="#0f172a">
+            {unit.label}
           </text>
+          <title>{unit.label} — Filtration Unit</title>
         </g>
       );
     }
@@ -110,16 +120,18 @@ export default function ProcessInstrumentationDesigner({
       pipes.push(
         <g key={`pipe-${i}`}>
           <line
-            x1={from.x + 20}
+            x1={from.x + 36}
             y1={from.y}
-            x2={to.x - 20}
+            x2={to.x - 36}
             y2={to.y}
-            stroke={pumpOn && valveOpen ? "#10b981" : "#cbd5e1"}
-            strokeWidth="3"
-            markerEnd="url(#arrowhead)"
-            className="transition-all"
+            stroke={flowActive ? 'url(#pipeGradient)' : '#cbd5e1'}
+            strokeWidth="6"
+            markerEnd={`url(#${flowActive ? 'arrowActive' : 'arrowInactive'})`}
+            className={flowActive ? 'flow-anim' : 'transition-all'}
+            strokeLinecap="round"
           />
-          <polygon points={`${to.x - 15},${to.y} ${to.x - 10},${to.y - 3} ${to.x - 10},${to.y + 3}`} fill={pumpOn && valveOpen ? "#10b981" : "#cbd5e1"} />
+          {/* subtle arrow head */}
+          <polygon points={`${to.x - 20},${to.y} ${to.x - 12},${to.y - 6} ${to.x - 12},${to.y + 6}`} fill={flowActive ? '#059669' : '#94a3b8'} opacity="0.9" />
         </g>
       );
     }
@@ -130,24 +142,33 @@ export default function ProcessInstrumentationDesigner({
   const renderInstruments = () => {
     return instruments.map((inst) => (
       <g key={inst.id}>
-        <rect
-          x={inst.x - 30}
-          y={inst.y - 20}
-          width="60"
-          height="40"
-          fill="#f1f5f9"
-          stroke="#475569"
-          strokeWidth="1.5"
-          rx="4"
-          className="cursor-pointer hover:fill-slate-100 transition-colors"
-          onClick={() => onNodeClick(inst.id)}
-        />
-        <text x={inst.x} y={inst.y - 8} textAnchor="middle" fontSize="11" fontWeight="700" fill="#1e293b">
+        <g filter="url(#shadow)" className="cursor-pointer" onClick={() => onNodeClick(inst.id)}>
+          <rect
+            x={inst.x - 54}
+            y={inst.y - 34}
+            width="108"
+            height="68"
+            fill="#ffffff"
+            stroke="#e6eef7"
+            strokeWidth="1"
+            rx="8"
+          />
+        </g>
+        <text x={inst.x - 28} y={inst.y - 4} textAnchor="start" fontSize="12" fontWeight="700" fill="#0f172a">
           {inst.label}
         </text>
-        <text x={inst.x} y={inst.y + 4} textAnchor="middle" fontSize="10" fill="#475569">
-          {inst.value}
+        <text x={inst.x - 28} y={inst.y + 12} textAnchor="start" fontSize="11" fill="#475569">
+          {inst.unit}: {inst.value}
         </text>
+
+        {/* Special rendering for valve to show lever */}
+        {inst.id === 'V-301' && (
+          <g transform={`translate(${inst.x + 22}, ${inst.y})`}>
+            <rect x={-18} y={-6} width={36} height={12} rx={3} fill={valveOpen ? '#38bdf8' : '#cbd5e1'} stroke="#0f172a" strokeWidth="0.8" />
+            <rect x={-2} y={-10} width={4} height={20} rx={2} fill="#0f172a" className={valveOpen ? 'valve-open' : 'valve-closed'} />
+            <title>Valve V-301 — {valveOpen ? 'Open' : 'Closed'}</title>
+          </g>
+        )}
       </g>
     ));
   };
@@ -160,17 +181,39 @@ export default function ProcessInstrumentationDesigner({
       </div>
 
       {/* SVG Diagram */}
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 overflow-x-auto">
-        <svg width="700" height="300" className="min-w-max">
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-8 overflow-x-auto">
+        <svg width="1200" height="500" className="min-w-max">
           <defs>
-            <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-              <polygon points="0 0, 10 3, 0 6" fill="#475569" />
+            <linearGradient id="pipeGradient" x1="0" x2="1">
+              <stop offset="0%" stopColor="#34d399" />
+              <stop offset="100%" stopColor="#059669" />
+            </linearGradient>
+
+            <marker id="arrowActive" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+              <polygon points="0 0, 10 3, 0 6" fill="#059669" />
             </marker>
+            <marker id="arrowInactive" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+              <polygon points="0 0, 10 3, 0 6" fill="#94a3b8" />
+            </marker>
+
+            <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="6" stdDeviation="8" floodColor="#000" floodOpacity="0.12" />
+            </filter>
+
             <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
               <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#f1f5f9" strokeWidth="0.5" />
             </pattern>
           </defs>
-          <rect width="700" height="300" fill="url(#grid)" />
+          <rect width="1200" height="500" fill="url(#grid)" />
+
+          <style>{`
+            .flow-anim { stroke-dasharray: 8 6; animation: dash 1.2s linear infinite; }
+            @keyframes dash { to { stroke-dashoffset: -14; } }
+            .pump-spin { transform-origin: center; animation: spin 1s linear infinite; }
+            @keyframes spin { to { transform: rotate(360deg); } }
+            .valve-closed { transform-origin: center; transition: transform 300ms ease; }
+            .valve-open { transform-origin: center; transition: transform 300ms ease; transform: rotate(90deg); }
+          `}</style>
 
           {/* Pipes */}
           {renderPipes()}
