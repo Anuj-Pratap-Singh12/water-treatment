@@ -3,20 +3,34 @@ import React from "react";
 import ProcessFlow from "../components/ProcessFlow";
 import StageDetailCard from "../components/StageDetailCard";
 import TreatmentSimulator from "../components/TreatmentSimulator";
-import { StagePerformanceChart, ChemicalDoseChart } from "../components/ProcessCharts";
+import {
+  StagePerformanceChart,
+  ChemicalDoseChart,
+} from "../components/ProcessCharts";
 import CostEfficiencyCalculator from "../components/CostEfficiencyCalculator";
 import ProcessFlowDiagram from "../components/ProcessFlowDiagram";
 import ProcessInstrumentationDesigner from "../components/ProcessInstrumentationDesigner"; // ✅ NEW
 import { classifyReusePurposes } from "../utils/reusePurposeClassifier";
+import DesignPredictor from "../components/DesignPredictor";
+
+// 🔗 FastAPI backend base URL
+const API_BASE = "http://127.0.0.1:8000";
+
+// 🔎 Labels for ML process design types
+const ML_TYPE_LABELS = {
+  1: "Type 1 – Drinking / Potable Water",
+  2: "Type 2 – Domestic / Grey Water",
+  3: "Type 3 – Treated Wastewater (MBR Recycle)",
+  4: "Type 4 – Industrial Effluent",
+  5: "Type 5 – High Organic Load Wastewater",
+};
 
 export default function ProcessDesignPage({ initialSensorData = null }) {
   const [selectedStage, setSelectedStage] = React.useState(null);
   const [simResults, setSimResults] = React.useState(null);
 
-  // Apply sensor data to the TreatmentSimulator when it arrives
-  const handleSimulate = (results) => {
-    setSimResults(results);
-  };
+  // 🌟 ML design result (fed from <DesignPredictor />)
+  const [designResult, setDesignResult] = React.useState(null);
 
   const influent = simResults?.influent || null;
   const localResults = simResults?.localResults || null;
@@ -74,8 +88,7 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
     }
   }
 
-  const chemicalDoses =
-    ml?.chemicalDoses || ml?.chemical_doses || {};
+  const chemicalDoses = ml?.chemicalDoses || ml?.chemical_doses || {};
 
   const primarySteps = Array.isArray(waterType?.primary)
     ? waterType.primary
@@ -113,7 +126,7 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
 
   const downloadReport = () => {
     try {
-      if (!simResults) {
+      if (!simResults || !localResults || !localResults.length) {
         alert("Please run a simulation first!");
         return;
       }
@@ -128,8 +141,7 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
 
       const chemicalRows = chemicals
         .map(
-          (c) =>
-            `<li><b>${c.chemical}:</b> ${c.reason}</li>`
+          (c) => `<li><b>${c.chemical}:</b> ${c.reason}</li>`
         )
         .join("");
 
@@ -152,7 +164,9 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
               ? efficiencyValues.turbidity.toFixed(1)
               : "—"
           }%</td><td>${
-            efficiencyValues.BOD !== null ? efficiencyValues.BOD.toFixed(1) : "—"
+            efficiencyValues.BOD !== null
+              ? efficiencyValues.BOD.toFixed(1)
+              : "—"
           }%</td><td>${
             efficiencyValues.TN !== null ? efficiencyValues.TN.toFixed(1) : "—"
           }%</td></tr>`
@@ -168,8 +182,8 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
           }</td></tr>`
         : "";
 
-      const influent = localResults[0];
-      const tertiary = localResults[localResults.length - 1];
+      const influentRow = localResults[0];
+      const tertiaryRow = localResults[localResults.length - 1];
 
       const htmlContent = `
 <!DOCTYPE html>
@@ -403,18 +417,18 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
     <div class="before-after-grid">
       <div class="ba-card">
         <h3>Turbidity</h3>
-        <p>Before: <b>${influent.turbidity.toFixed(2)} NTU</b></p>
-        <p>After: <b>${tertiary.turbidity.toFixed(2)} NTU</b></p>
+        <p>Before: <b>${influentRow.turbidity.toFixed(2)} NTU</b></p>
+        <p>After: <b>${tertiaryRow.turbidity.toFixed(2)} NTU</b></p>
       </div>
       <div class="ba-card">
         <h3>BOD</h3>
-        <p>Before: <b>${influent.BOD.toFixed(2)} mg/L</b></p>
-        <p>After: <b>${tertiary.BOD.toFixed(2)} mg/L</b></p>
+        <p>Before: <b>${influentRow.BOD.toFixed(2)} mg/L</b></p>
+        <p>After: <b>${tertiaryRow.BOD.toFixed(2)} mg/L</b></p>
       </div>
       <div class="ba-card">
         <h3>Total Nitrogen</h3>
-        <p>Before: <b>${influent.TN.toFixed(2)} mg/L</b></p>
-        <p>After: <b>${tertiary.TN.toFixed(2)} mg/L</b></p>
+        <p>Before: <b>${influentRow.TN.toFixed(2)} mg/L</b></p>
+        <p>After: <b>${tertiaryRow.TN.toFixed(2)} mg/L</b></p>
       </div>
     </div>
 
@@ -470,7 +484,6 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
       printWindow.document.write(htmlContent);
       printWindow.document.close();
 
-      // Wait for content to load then print
       setTimeout(() => {
         printWindow.print();
         printWindow.close();
@@ -484,7 +497,7 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
   return (
     <div className="space-y-8">
       {/* HEADER */}
-      <section className="rounded-3xl border border-slate-200/70 bg-gradient-to-r from-emerald-50 via-cyan-50 to-sky-50 shadow-sm px-6 py-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <section className="rounded-3xl border border-slate-200/70 bg-linear-to-r from-emerald-50 via-cyan-50 to-sky-50 shadow-sm px-6 py-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100/70 px-3 py-1 text-xs font-medium text-emerald-800">
             <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -495,11 +508,71 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
           </h1>
           <p className="mt-1.5 text-sm text-slate-600 max-w-xl">
             Configure your influent, simulate stage-wise removal and let the
-            rule engine + ML recommend optimized treatment, equipment and chemical dosing.
+            rule engine + ML recommend optimized treatment, equipment and
+            chemical dosing.
           </p>
         </div>
+      </section>
 
+      {/* MAIN: FLOW + SIDEPANEL */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Process flow */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">
+                Process Flow
+              </h2>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Click a stage to explore units and design notes.
+              </p>
+            </div>
+          </div>
 
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
+            <ProcessFlow
+              selected={selectedStage}
+              onSelect={(key) => setSelectedStage(key)}
+            />
+          </div>
+        </div>
+
+        {/* Side panel */}
+        <aside className="space-y-4">
+          {/* Stage details */}
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
+            <StageDetailCard stageKey={selectedStage} />
+          </div>
+
+          {/* Quick summary */}
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-slate-500 uppercase">
+                Quick Summary
+              </div>
+            </div>
+            <div className="space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Influent Flow</span>
+                <span className="font-semibold text-slate-900">
+                  {influent?.flow ? `${influent.flow} m³/day` : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Final BOD (local)</span>
+                <span className="font-semibold text-slate-900">
+                  {finalLocal ? `${finalLocal.BOD} mg/L` : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Final Turbidity (local)</span>
+                <span className="font-semibold text-slate-900">
+                  {finalLocal ? `${finalLocal.turbidity} NTU` : "—"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </aside>
       </section>
 
       {/* SIMULATION + RESULTS */}
@@ -510,16 +583,18 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
               Simulation & Recommendations
             </h2>
             <p className="text-xs text-slate-600 mt-0.5">
-              Run a scenario and compare stage-wise performance, water type classification,
-              equipment, chemicals and ML-backed recipe.
+              Run a scenario and compare stage-wise performance, water type
+              classification, equipment, chemicals and ML-backed recipe.
             </p>
           </div>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-inner p-5 space-y-6">
           {/* Simulator */}
-          <TreatmentSimulator 
-            onSimulate={handleSimulate} 
+          <TreatmentSimulator
+            onSimulate={(r) => {
+              setSimResults(r);
+            }}
             initialSensorData={initialSensorData}
           />
 
@@ -626,16 +701,19 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
                       ♻️ Reuse Purpose Classification
                     </div>
                     <div className="text-[11px] text-emerald-700 mb-3">
-                      Based on final effluent quality: Turbidity <strong>{finalLocal.turbidity} NTU</strong> | BOD <strong>{finalLocal.BOD} mg/L</strong> | Total N <strong>{finalLocal.TN} mg/L</strong>
+                      Based on final effluent quality: Turbidity{" "}
+                      <strong>{finalLocal.turbidity} NTU</strong> | BOD{" "}
+                      <strong>{finalLocal.BOD} mg/L</strong> | Total N{" "}
+                      <strong>{finalLocal.TN} mg/L</strong>
                     </div>
-                    
+
                     {(() => {
                       const { allowed, notAllowed } = classifyReusePurposes(
                         finalLocal.turbidity,
                         finalLocal.BOD,
                         finalLocal.TN
                       );
-                      
+
                       return (
                         <div className="space-y-3">
                           {allowed.length > 0 && (
@@ -645,7 +723,10 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
                               </div>
                               <div className="space-y-2">
                                 {allowed.map((purpose, idx) => (
-                                  <div key={idx} className="p-2 rounded-lg bg-white/70 border border-emerald-100">
+                                  <div
+                                    key={idx}
+                                    className="p-2 rounded-lg bg-white/70 border border-emerald-100"
+                                  >
                                     <div className="text-xs font-semibold text-emerald-800">
                                       {purpose.name}
                                     </div>
@@ -666,7 +747,8 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
                               <div className="text-[10px] text-orange-700 space-y-1">
                                 {notAllowed.slice(0, 3).map((purpose, idx) => (
                                   <div key={idx}>
-                                    <strong>{purpose.name}</strong> — {purpose.useCase}
+                                    <strong>{purpose.name}</strong> —{" "}
+                                    {purpose.useCase}
                                   </div>
                                 ))}
                               </div>
@@ -705,21 +787,27 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
                           {Array.isArray(equipment.primary) &&
                             equipment.primary.map((e) => (
                               <li key={`p-${e}`}>
-                                <span className="font-semibold">[Primary] </span>
+                                <span className="font-semibold">
+                                  [Primary]{" "}
+                                </span>
                                 {e}
                               </li>
                             ))}
                           {Array.isArray(equipment.secondary) &&
                             equipment.secondary.map((e) => (
                               <li key={`s-${e}`}>
-                                <span className="font-semibold">[Secondary] </span>
+                                <span className="font-semibold">
+                                  [Secondary]{" "}
+                                </span>
                                 {e}
                               </li>
                             ))}
                           {Array.isArray(equipment.tertiary) &&
                             equipment.tertiary.map((e) => (
                               <li key={`t-${e}`}>
-                                <span className="font-semibold">[Tertiary] </span>
+                                <span className="font-semibold">
+                                  [Tertiary]{" "}
+                                </span>
                                 {e}
                               </li>
                             ))}
@@ -740,7 +828,9 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
                         <ul className="list-disc list-inside space-y-1 text-slate-700">
                           {chemicals.map((c) => (
                             <li key={c.chemical}>
-                              <span className="font-semibold">{c.chemical}</span>{" "}
+                              <span className="font-semibold">
+                                {c.chemical}
+                              </span>{" "}
                               <span className="text-slate-500">
                                 ({c.stage}) – {c.reason}
                               </span>
@@ -781,12 +871,11 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
                         </p>
                       )}
                     </div>
-                    
                   </div>
 
-                  {/* Dose summary placeholder */}
+                  {/* Dose summary placeholder (kept if you want extra content later) */}
                   <div className="p-3 rounded-xl bg-slate-50 border">
-                    {/* ...your existing dose summary code... */}
+                    {/* ...extra dose summary / notes if needed... */}
                   </div>
 
                   {/* Chemical chart */}
@@ -794,68 +883,78 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
                     <div className="font-semibold text-slate-700 mb-1">
                       Chemical Dose Chart (mg/L)
                     </div>
-                    <ChemicalDoseChart doses={doses} chemicalDoses={chemicalDoses} />
+                    <ChemicalDoseChart
+                      doses={doses}
+                      chemicalDoses={chemicalDoses}
+                    />
                   </div>
-                  
                 </div>
               )}
-                  <section className="space-y-3">
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Process & Instrumentation (P&ID)
-            </h2>
-            <p className="text-xs text-slate-600 mt-0.5">
-              Interactive process & instrumentation layout with live parameter controls.
-            </p>
-          </div>
-        </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-inner p-4">
-          <ProcessInstrumentationDesigner
-            influent={influent}
-            localResults={localResults}
-            onNodeClick={(id) => {
-              // Simple mapping from P&ID nodes to stage keys
-              if (id === "intake") setSelectedStage("screening");
-              else if (id === "coagulation") setSelectedStage("primary");
-              else if (id === "sedimentation") setSelectedStage("secondary");
-              else if (id === "filtration") setSelectedStage("tertiary");
-              // instruments like FT-101, PH-401 etc can be handled later if needed
-            }}
-          />
-        </div>
-      </section>
+              {/* P&ID / INSTRUMENTATION SECTION */}
+              <section className="space-y-3">
+                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">
+                      Process & Instrumentation (P&ID)
+                    </h2>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Interactive process & instrumentation layout with live
+                      parameter controls.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-inner p-4">
+                  <ProcessInstrumentationDesigner
+                    influent={influent}
+                    localResults={localResults}
+                    onNodeClick={(id) => {
+                      if (id === "intake") setSelectedStage("screening");
+                      else if (id === "coagulation") setSelectedStage("primary");
+                      else if (id === "sedimentation")
+                        setSelectedStage("secondary");
+                      else if (id === "filtration")
+                        setSelectedStage("tertiary");
+                    }}
+                  />
+                </div>
+              </section>
             </div>
-
-            
 
             {/* RIGHT: AI Recommendation + Water type */}
             <div className="space-y-4">
               {/* AI Recommendation card */}
-              <div className="rounded-2xl bg-gradient-to-b from-emerald-600 to-emerald-700 text-emerald-50 p-4 space-y-3 shadow-md">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-100">
-                      AI Treatment Recommendation
-                    </div>
-                    <p className="text-[11px] text-emerald-50/80 mt-0.5">
-                      ML model based on synthetic rule-engine patterns.
-                    </p>
-                  </div>
-                  {influent?.reusePurpose && (
-                    <div className="text-right text-[11px]">
-                      <div className="text-emerald-100/70">Target Reuse</div>
-                      <div className="mt-0.5 rounded-full bg-emerald-500/20 px-2 py-0.5 font-medium">
-                        {influent.reusePurpose}
+              <div className="rounded-2xl bg-linear-to-b from-emerald-600 to-emerald-700 text-emerald-50 p-4 space-y-3 shadow-md">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-100">
+                        AI Treatment Recommendation
                       </div>
+                      <p className="text-[11px] text-emerald-50/80 mt-0.5">
+                        ML model based on synthetic rule-engine patterns.
+                      </p>
                     </div>
-                  )}
+                    {influent?.reusePurpose && (
+                      <div className="text-right text-[11px]">
+                        <div className="text-emerald-100/70">Target Reuse</div>
+                        <div className="mt-0.5 rounded-full bg-emerald-500/20 px-2 py-0.5 font-medium">
+                          {influent.reusePurpose}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {reusePercent !== null && (
-                    <div className="text-right mt-3">
-                      <div className="text-emerald-100/70 text-[11px]">Estimated Reuse Potential</div>
+                    <div className="text-right">
+                      <div className="text-emerald-100/70 text-[11px]">
+                        Estimated Reuse Potential
+                      </div>
                       <div className="mt-1 flex items-center justify-end gap-3">
-                        <div className="text-3xl font-bold text-white">{reusePercent}%</div>
+                        <div className="text-3xl font-bold text-white">
+                          {reusePercent}%
+                        </div>
                         <div className="w-32 h-2 bg-emerald-900/20 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-emerald-300"
@@ -908,6 +1007,33 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
                     dosing guidance.
                   </div>
                 )}
+
+                {/* 🌟 NEW: show ML process design output here (from DesignPredictor) */}
+                <div className="mt-3 border-t border-emerald-500/30 pt-2">
+                  {designResult ? (
+                    <div className="rounded-lg bg-emerald-900/25 border border-emerald-400/40 px-3 py-2 text-[11px] space-y-1">
+                      <div className="uppercase text-emerald-100/80 font-semibold">
+                        ML Process Design
+                      </div>
+                      <div>
+                        {ML_TYPE_LABELS[designResult.predicted_type] ||
+                          `Type ${designResult.predicted_type}`}
+                      </div>
+                      <div>
+                        Cost: ₹{" "}
+                        {designResult.cost_per_m3_inr
+                          ? designResult.cost_per_m3_inr.toFixed(2)
+                          : "—"}{" "}
+                        / m³
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-emerald-100/80">
+                      Scroll down to run the detailed ML design predictor and
+                      see cost & process type here.
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* WATER TYPE + STANDARD TREATMENT BOX */}
@@ -994,17 +1120,29 @@ export default function ProcessDesignPage({ initialSensorData = null }) {
               {doses && influent?.flow && (
                 <CostEfficiencyCalculator doses={doses} flow={influent.flow} />
               )}
-
-          
             </div>
           </div>
         </div>
       </section>
 
+      {/* DESIGN PREDICTOR SECTION (detailed ML view) */}
+      <section className="space-y-4">
+        <DesignPredictor
+          apiBase={API_BASE}
+          influent={influent} // IoT + manual updated influent
+          equipment={equipment} // REAL equipment from simulator
+          chemicals={chemicals} // REAL chemicals
+          doses={doses} // REAL rule-based doses
+          waterType={waterType} // REAL rule-based classification
+          localResults={localResults} // REAL stage-wise results
+          onResult={(mlDesign) => {
+            setDesignResult(mlDesign); // feeds into AI card above
+          }}
+        />
+      </section>
+
       {/* STANDARD TREATMENT FLOW DIAGRAMS */}
       <section className="space-y-4">
-        
-
         <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-inner p-5">
           <ProcessFlowDiagram waterType={waterType} />
         </div>
