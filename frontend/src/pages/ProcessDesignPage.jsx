@@ -8,10 +8,29 @@ import { StagePerformanceChart, ChemicalDoseChart } from "../components/ProcessC
 import CostEfficiencyCalculator from "../components/CostEfficiencyCalculator";
 import ProcessFlowDiagram from "../components/ProcessFlowDiagram";
 import ProcessInstrumentationDesigner from "../components/ProcessInstrumentationDesigner"; // ✅ NEW
+import DesignPredictor from "../components/DesignPredictor";
+
+
+// 🔗 FastAPI backend base URL
+const API_BASE = "http://127.0.0.1:8000";
+
+// 🔎 Labels for ML process design types
+const ML_TYPE_LABELS = {
+  1: "Type 1 – Drinking / Potable Water",
+  2: "Type 2 – Domestic / Grey Water",
+  3: "Type 3 – Treated Wastewater (MBR Recycle)",
+  4: "Type 4 – Industrial Effluent",
+  5: "Type 5 – High Organic Load Wastewater",
+};
 
 export default function ProcessDesignPage() {
   const [selectedStage, setSelectedStage] = React.useState(null);
   const [simResults, setSimResults] = React.useState(null);
+
+  // 🌟 NEW: state for ML process design result
+  const [designResult, setDesignResult] = React.useState(null);
+  const [designLoading, setDesignLoading] = React.useState(false);
+  const [designError, setDesignError] = React.useState("");
 
   const influent = simResults?.influent || null;
   const localResults = simResults?.localResults || null;
@@ -53,6 +72,52 @@ export default function ProcessDesignPage() {
       : severity === "very_high"
       ? "bg-rose-100 text-rose-700"
       : "bg-slate-100 text-slate-700";
+
+  // 🌟 NEW: call ML backend using influent from TreatmentSimulator
+  const runDesignPredictionFromSim = async (results) => {
+    const infl = results?.influent;
+    if (!infl) return;
+
+    setDesignLoading(true);
+    setDesignError("");
+    setDesignResult(null);
+
+    try {
+      const payload = {
+        pH: infl.pH,
+        TDS_mgL: infl.tds,
+        turbidity_NTU: infl.turbidity,
+        BOD_mgL: infl.BOD,
+        COD_mgL: infl.COD,
+        total_nitrogen_mgL: infl.TN,
+        temperature_C: infl.temperature,
+        flow_m3_day: infl.flow,
+        // best-effort heavy metals flag (fallback to false)
+        heavy_metals: Boolean(infl.heavyMetals ?? infl.heavy_metals ?? false),
+      };
+
+      const res = await fetch(`${API_BASE}/predict-design`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Design API error: ${res.status}`);
+      }
+
+      const data = await res.json();
+      setDesignResult(data);
+      // console.log("ML Design result:", data);
+    } catch (err) {
+      console.error(err);
+      setDesignError(err.message || "Failed to compute ML process design");
+    } finally {
+      setDesignLoading(false);
+    }
+  };
 
   const downloadReport = () => {
     if (!simResults) return;
@@ -172,6 +237,9 @@ export default function ProcessDesignPage() {
       });
     }
 
+    // Optional: you could also include designResult here if you want:
+    // type + cost + stage times
+
     doc.save("water_treatment_report.pdf");
   };
 
@@ -273,9 +341,6 @@ export default function ProcessDesignPage() {
         </aside>
       </section>
 
-      {/* ✅ NEW: P&ID / INSTRUMENTATION SECTION */}
-    
-
       {/* SIMULATION + RESULTS */}
       <section className="space-y-4">
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5 flex items-center justify-between">
@@ -292,7 +357,13 @@ export default function ProcessDesignPage() {
 
         <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-inner p-5 space-y-6">
           {/* Simulator */}
-          <TreatmentSimulator onSimulate={(r) => setSimResults(r)} />
+          <TreatmentSimulator
+            onSimulate={(r) => {
+              setSimResults(r);
+              // 🌟 also trigger ML process design using same inputs
+              runDesignPredictionFromSim(r);
+            }}
+          />
 
           {/* RESULTS GRID */}
           <div className="mt-6 grid grid-cols-1 xl:grid-cols-3 gap-5">
@@ -473,41 +544,41 @@ export default function ProcessDesignPage() {
                   
                 </div>
               )}
-                  <section className="space-y-3">
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Process & Instrumentation (P&ID)
-            </h2>
-            <p className="text-xs text-slate-600 mt-0.5">
-              Interactive process & instrumentation layout with live parameter controls.
-            </p>
-          </div>
-        </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-inner p-4">
-          <ProcessInstrumentationDesigner
-            influent={influent}
-            localResults={localResults}
-            onNodeClick={(id) => {
-              // Simple mapping from P&ID nodes to stage keys
-              if (id === "intake") setSelectedStage("screening");
-              else if (id === "coagulation") setSelectedStage("primary");
-              else if (id === "sedimentation") setSelectedStage("secondary");
-              else if (id === "filtration") setSelectedStage("tertiary");
-              // instruments like FT-101, PH-401 etc can be handled later if needed
-            }}
-          />
-        </div>
-      </section>
+              {/* P&ID / INSTRUMENTATION SECTION */}
+              <section className="space-y-3">
+                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">
+                      Process & Instrumentation (P&ID)
+                    </h2>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Interactive process & instrumentation layout with live parameter controls.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-inner p-4">
+                  <ProcessInstrumentationDesigner
+                    influent={influent}
+                    localResults={localResults}
+                    onNodeClick={(id) => {
+                      // Simple mapping from P&ID nodes to stage keys
+                      if (id === "intake") setSelectedStage("screening");
+                      else if (id === "coagulation") setSelectedStage("primary");
+                      else if (id === "sedimentation") setSelectedStage("secondary");
+                      else if (id === "filtration") setSelectedStage("tertiary");
+                      // instruments like FT-101, PH-401 etc can be handled later if needed
+                    }}
+                  />
+                </div>
+              </section>
             </div>
-
-            
 
             {/* RIGHT: AI Recommendation + Water type */}
             <div className="space-y-4">
               {/* AI Recommendation card */}
-              <div className="rounded-2xl bg-gradient-to-b from-emerald-600 to-emerald-700 text-emerald-50 p-4 space-y-3 shadow-md">
+              <div className="rounded-2xl bg-gradient-to-b from-emerald-600 to-emerald-707 text-emerald-50 p-4 space-y-3 shadow-md">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-100">
@@ -568,6 +639,34 @@ export default function ProcessDesignPage() {
                     dosing guidance.
                   </div>
                 )}
+
+                {/* 🌟 NEW: show ML process design output here */}
+                <div className="mt-3 border-t border-emerald-500/30 pt-2">
+                  {designLoading && (
+                    <div className="text-[11px] text-emerald-100/80">
+                      Computing ML process design...
+                    </div>
+                  )}
+                  {designError && (
+                    <div className="text-[11px] text-rose-100 mt-1">
+                      {designError}
+                    </div>
+                  )}
+                  {designResult && !designLoading && !designError && (
+                    <div className="rounded-lg bg-emerald-900/25 border border-emerald-400/40 px-3 py-2 text-[11px] space-y-1">
+                      <div className="uppercase text-emerald-100/80 font-semibold">
+                        ML Process Design
+                      </div>
+                      <div>
+                        {ML_TYPE_LABELS[designResult.predicted_type] ||
+                          `Type ${designResult.predicted_type}`}
+                      </div>
+                      <div>
+                        Cost: ₹ {designResult.cost_per_m3_inr.toFixed(2)} / m³
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* WATER TYPE + STANDARD TREATMENT BOX */}
@@ -654,17 +753,31 @@ export default function ProcessDesignPage() {
               {doses && influent?.flow && (
                 <CostEfficiencyCalculator doses={doses} flow={influent.flow} />
               )}
-
-          
             </div>
           </div>
         </div>
       </section>
 
+      <section className="space-y-4">
+  <DesignPredictor
+  apiBase="http://127.0.0.1:8000"
+  influent={influent}           // IoT + manual updated influent
+  equipment={equipment}         // REAL equipment from simulator
+  chemicals={chemicals}         // REAL chemicals
+  doses={doses}                 // REAL rule-based doses
+  waterType={waterType}         // REAL rule-based classification
+  localResults={localResults}   // REAL stage-wise results
+  onResult={(mlDesign) => {
+    setDesignResult(mlDesign);  // optional
+  }}
+/>
+
+
+</section>
+
+
       {/* STANDARD TREATMENT FLOW DIAGRAMS */}
       <section className="space-y-4">
-        
-
         <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-inner p-5">
           <ProcessFlowDiagram waterType={waterType} />
         </div>
